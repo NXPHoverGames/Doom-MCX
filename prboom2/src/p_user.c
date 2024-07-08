@@ -39,8 +39,8 @@
 #include "p_map.h"
 #include "p_spec.h"
 #include "p_user.h"
-#include "r_demo.h"
-#include "r_fps.h"
+
+#include "global_data.h"
 
 // Index of the special effects (INVUL inverse) map.
 
@@ -54,7 +54,6 @@
 
 #define MAXBOB  0x100000
 
-boolean onground; // whether player is on ground or in air
 
 //
 // P_Thrust
@@ -82,10 +81,6 @@ void P_Thrust(player_t* player,angle_t angle,fixed_t move)
 
 static void P_Bob(player_t *player, angle_t angle, fixed_t move)
 {
-  //e6y
-  if (!mbf_features)
-    return;
-
   player->momx += FixedMul(move,finecosine[angle >>= ANGLETOFINESHIFT]);
   player->momy += FixedMul(move,finesine[angle]);
 }
@@ -114,26 +109,13 @@ void P_CalcHeight (player_t* player)
    * it causes bobbing jerkiness when the player moves from ice to non-ice,
    * and vice-versa.
    */
-  player->bob = !mbf_features ?
-    (FixedMul (player->mo->momx, player->mo->momx)
-     + FixedMul (player->mo->momy,player->mo->momy))>>2 :
-    player_bobbing ? (FixedMul(player->momx,player->momx) +
-        FixedMul(player->momy,player->momy))>>2 : 0;
-
-    //e6y
-    if (compatibility_level >= boom_202_compatibility && 
-        compatibility_level <= lxdoom_1_compatibility &&
-        player->mo->friction > ORIG_FRICTION) // ice?
-    {
-      if (player->bob > (MAXBOB>>2))
-        player->bob = MAXBOB>>2;
-    }
-    else
+  player->bob = (FixedMul(player->momx,player->momx) +
+        FixedMul(player->momy,player->momy))>>2;
 
   if (player->bob > MAXBOB)
     player->bob = MAXBOB;
 
-  if (!onground || player->cheats & CF_NOMOMENTUM)
+  if (!_g->onground || player->cheats & CF_NOMOMENTUM)
     {
     player->viewz = player->mo->z + VIEWHEIGHT;
 
@@ -148,7 +130,7 @@ void P_CalcHeight (player_t* player)
     return;
     }
 
-  angle = (FINEANGLES/20*leveltime)&FINEMASK;
+  angle = (FINEANGLES/20*_g->leveltime)&FINEMASK;
   bob = FixedMul(player->bob/2,finesine[angle]);
 
   // move viewheight
@@ -192,17 +174,13 @@ void P_CalcHeight (player_t* player)
 //
 // killough 10/98: simplified
 
-void P_MovePlayer (player_t* player)
+static void P_MovePlayer (player_t* player)
 {
   ticcmd_t *cmd = &player->cmd;
   mobj_t *mo = player->mo;
 
   mo->angle += cmd->angleturn << 16;
-  onground = mo->z <= mo->floorz;
-
-  // e6y
-  if (demo_smoothturns && player == &players[displayplayer])
-    R_SmoothPlaying_Add(cmd->angleturn << 16);
+  _g->onground = mo->z <= mo->floorz;
 
   // killough 10/98:
   //
@@ -212,28 +190,21 @@ void P_MovePlayer (player_t* player)
   // thrust applied to the movement varies with 'movefactor'.
 
   //e6y
-  if ((!demo_compatibility && !mbf_features) || (cmd->forwardmove | cmd->sidemove)) // killough 10/98
+  if ((cmd->forwardmove | cmd->sidemove)) // killough 10/98
     {
-      if (onground || mo->flags & MF_BOUNCES) // killough 8/9/98
+      if (_g->onground) // killough 8/9/98
       {
-        int friction, movefactor = P_GetMoveFactor(mo, &friction);
-
-        // killough 11/98:
-        // On sludge, make bobbing depend on efficiency.
-        // On ice, make it depend on effort.
-
-        int bobfactor =
-          friction < ORIG_FRICTION ? movefactor : ORIG_FRICTION_FACTOR;
+        int movefactor = ORIG_FRICTION_FACTOR;
 
         if (cmd->forwardmove)
         {
-          P_Bob(player,mo->angle,cmd->forwardmove*bobfactor);
+          P_Bob(player,mo->angle,cmd->forwardmove*movefactor);
           P_Thrust(player,mo->angle,cmd->forwardmove*movefactor);
         }
 
         if (cmd->sidemove)
         {
-          P_Bob(player,mo->angle-ANG90,cmd->sidemove*bobfactor);
+          P_Bob(player,mo->angle-ANG90,cmd->sidemove*movefactor);
           P_Thrust(player,mo->angle-ANG90,cmd->sidemove*movefactor);
         }
       }
@@ -250,7 +221,7 @@ void P_MovePlayer (player_t* player)
 // Decrease POV height to floor height.
 //
 
-void P_DeathThink (player_t* player)
+static void P_DeathThink (player_t* player)
   {
   angle_t angle;
   angle_t delta;
@@ -266,7 +237,7 @@ void P_DeathThink (player_t* player)
     player->viewheight = 6*FRACUNIT;
 
   player->deltaviewheight = 0;
-  onground = (player->mo->z <= player->mo->floorz);
+  _g->onground = (player->mo->z <= player->mo->floorz);
   P_CalcHeight (player);
 
   if (player->attacker && player->attacker != player->mo)
@@ -298,7 +269,7 @@ void P_DeathThink (player_t* player)
 
   if (player->cmd.buttons & BT_USE)
     player->playerstate = PST_REBORN;
-  R_SmoothPlaying_Reset(player); // e6y
+
   }
 
 
@@ -310,14 +281,6 @@ void P_PlayerThink (player_t* player)
   {
   ticcmd_t*    cmd;
   weapontype_t newweapon;
-
-  if (movement_smooth && players && &players[displayplayer] == player)
-  {
-    original_view_vars.viewx = player->mo->x;
-    original_view_vars.viewy = player->mo->y;
-    original_view_vars.viewz = player->viewz;
-    original_view_vars.viewangle = R_SmoothPlaying_Get(player->mo->angle) + viewangleoffset;
-  }
 
   // killough 2/8/98, 3/21/98:
   if (player->cheats & CF_NOCLIP)
@@ -369,23 +332,6 @@ void P_PlayerThink (player_t* player)
 
     newweapon = (cmd->buttons & BT_WEAPONMASK)>>BT_WEAPONSHIFT;
 
-    // killough 3/22/98: For demo compatibility we must perform the fist
-    // and SSG weapons switches here, rather than in G_BuildTiccmd(). For
-    // other games which rely on user preferences, we must use the latter.
-
-    if (demo_compatibility)
-      { // compatibility mode -- required for old demos -- killough
-      if (newweapon == wp_fist && player->weaponowned[wp_chainsaw] &&
-        (player->readyweapon != wp_chainsaw ||
-         !player->powers[pw_strength]))
-        newweapon = wp_chainsaw;
-      if (gamemode == commercial &&
-        newweapon == wp_shotgun &&
-        player->weaponowned[wp_supershotgun] &&
-        player->readyweapon != wp_supershotgun)
-        newweapon = wp_supershotgun;
-      }
-
     // killough 2/8/98, 3/22/98 -- end of weapon selection changes
 
     if (player->weaponowned[newweapon] && newweapon != player->readyweapon)
@@ -394,7 +340,7 @@ void P_PlayerThink (player_t* player)
       //  even if cheated.
 
       if ((newweapon != wp_plasma && newweapon != wp_bfg)
-          || (gamemode != shareware) )
+          || (_g->gamemode != shareware) )
         player->pendingweapon = newweapon;
     }
 

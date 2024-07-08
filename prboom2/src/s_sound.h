@@ -38,6 +38,10 @@
 #pragma interface
 #endif
 
+#include "p_mobj.h"
+#include "r_defs.h"
+#include "sounds.h"
+
 //
 // Initializes sound stuff, including volume
 // Sets channels, SFX and music volume,
@@ -59,10 +63,9 @@ void S_Start(void);
 // Start sound for thing at <origin>
 //  using <sound_id> from sounds.h
 //
-void S_StartSound(void *origin, int sound_id);
+void S_StartSound(mobj_t *origin, int sfx_id);
 
-// Will start a sound at a given volume.
-void S_StartSoundAtVolume(void *origin, int sound_id, int volume);
+void S_StartSound2(degenmobj_t* origin, int sfx_id);
 
 // killough 4/25/98: mask used to indicate sound origin is player item pickup
 #define PICKUP_SOUND (0x8000)
@@ -90,11 +93,16 @@ void S_UpdateSounds(void* listener);
 void S_SetMusicVolume(int volume);
 void S_SetSfxVolume(int volume);
 
-// machine-independent sound params
-extern int default_numChannels;
-extern int numChannels;
 
-//jff 3/17/98 holds last IDMUS number, or -1
-extern int idmusnum;
+typedef struct
+{
+  const sfxinfo_t *sfxinfo;  // sound information (if null, channel avail.)
+  int tickend;
+  void *origin;        // origin of sound
+  short handle;          // handle of the sound being played
+  short is_pickup;       // killough 4/25/98: whether sound is a player's weapon
+} channel_t;
+
+
 
 #endif

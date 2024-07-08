@@ -42,33 +42,6 @@
 #endif
 
 //
-// POV related.
-//
-
-extern fixed_t  viewcos;
-extern fixed_t  viewsin;
-extern int      viewwidth;
-extern int      viewheight;
-extern int      viewwindowx;
-extern int      viewwindowy;
-extern int      centerx;
-extern int      centery;
-extern fixed_t  centerxfrac;
-extern fixed_t  centeryfrac;
-extern fixed_t  viewheightfrac; //e6y: for correct clipping of things
-extern fixed_t  projection;
-// proff 11/06/98: Added for high-res
-extern fixed_t  projectiony;
-extern int      validcount;
-
-//
-// Rendering stats
-//
-
-extern int rendered_visplanes, rendered_segs, rendered_vissprites;
-extern boolean rendering_stats;
-
-//
 // Lighting LUT.
 // Used for z-depth cuing per column/row,
 //  and other lighting effects (sector ambient, flash).
@@ -83,28 +56,53 @@ extern boolean rendering_stats;
 #define MAXLIGHTZ        128
 #define LIGHTZSHIFT       20
 
-// killough 3/20/98: Allow colormaps to be dynamic (e.g. underwater)
-extern const lighttable_t *(*zlight)[MAXLIGHTZ];
-extern const lighttable_t *fullcolormap;
-extern int numcolormaps;    // killough 4/4/98: dynamic number of maps
-extern const lighttable_t **colormaps;
-// killough 3/20/98, 4/4/98: end dynamic colormaps
-
-extern int          extralight;
-extern const lighttable_t *fixedcolormap;
-
 // Number of diminishing brightness levels.
 // There a 0-31, i.e. 32 LUT in the COLORMAP lump.
 
 #define NUMCOLORMAPS 32
 
+extern const int viewheight;
+
+extern const int centery;
+
+extern const fixed_t projection;
+extern const fixed_t iprojection;
+
+
+
+//Global vars.
+
+extern int numnodes;
+extern const mapnode_t *nodes;
+
+extern fixed_t  viewx, viewy, viewz;
+
+extern angle_t  viewangle;
+
+extern short *floorclip, *ceilingclip;
+
+extern const lighttable_t *fullcolormap;
+extern const lighttable_t *colormaps;
+extern const lighttable_t* fixedcolormap;
+
+extern int extralight;                           // bumped light from gun blasts
+
+extern const texture_t **textures; // proff - 04/05/2000 removed static for OpenGL
+extern fixed_t   *textureheight; //needed for texture pegging (and TFE fix - killough)
+
+extern short       *flattranslation;             // for global animation
+extern short       *texturetranslation;
+
+extern fixed_t basexscale, baseyscale;
+
+extern fixed_t  viewcos, viewsin;
+
+extern boolean highDetail;
+
 //
 // Utility functions.
 //
 
-PUREFUNC int R_PointOnSide(fixed_t x, fixed_t y, const node_t *node);
-PUREFUNC int R_PointOnSegSide(fixed_t x, fixed_t y, const seg_t *line);
-angle_t R_PointToAngle(fixed_t x, fixed_t y);
 angle_t R_PointToAngle2(fixed_t x1, fixed_t y1, fixed_t x2, fixed_t y2);
 subsector_t *R_PointInSubsector(fixed_t x, fixed_t y);
 
@@ -114,7 +112,7 @@ subsector_t *R_PointInSubsector(fixed_t x, fixed_t y);
 
 void R_RenderPlayerView(player_t *player);   // Called by G_Drawer.
 void R_Init(void);                           // Called by startup code.
-void R_SetViewSize(int blocks);              // Called by M_Responder.
-void R_ExecuteSetViewSize(void);             // cph - called by D_Display to complete a view resize
+void R_SetupFrame (player_t *player);
+
 
 #endif

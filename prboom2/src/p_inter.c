@@ -38,12 +38,13 @@
 #include "r_main.h"
 #include "s_sound.h"
 #include "sounds.h"
-#include "d_deh.h"  // Ty 03/22/98 - externalized strings
 #include "p_tick.h"
 #include "lprintf.h"
 
 #include "p_inter.h"
 #include "p_enemy.h"
+
+#include "global_data.h"
 
 #ifdef __GNUG__
 #pragma implementation "p_inter.h"
@@ -57,30 +58,29 @@
 // dehacked support (and future flexibility).  Most var names came from the key
 // strings used in dehacked.
 
-int initial_health = 100;
-int initial_bullets = 50;
-int maxhealth = 100; // was MAXHEALTH as a #define, used only in this module
-int max_armor = 200;
-int green_armor_class = 1;  // these are involved with armortype below
-int blue_armor_class = 2;
-int max_soul = 200;
-int soul_health = 100;
-int mega_health = 200;
-int god_health = 100;   // these are used in cheats (see st_stuff.c)
-int idfa_armor = 200;
-int idfa_armor_class = 2;
+const int initial_health = 100;
+const int initial_bullets = 50;
+const int maxhealth = 100; // was MAXHEALTH as a #define, used only in this module
+const int max_armor = 200;
+const int green_armor_class = 1;  // these are involved with armortype below
+const int blue_armor_class = 2;
+const int max_soul = 200;
+const int soul_health = 100;
+const int mega_health = 200;
+const int god_health = 100;   // these are used in cheats (see st_stuff.c)
+const int idfa_armor = 200;
+const int idfa_armor_class = 2;
 // not actually used due to pairing of cheat_k and cheat_fa
-int idkfa_armor = 200;
-int idkfa_armor_class = 2;
+const int idkfa_armor = 200;
+const int idkfa_armor_class = 2;
 
-int bfgcells = 40;      // used in p_pspr.c
-int monsters_infight = 0; // e6y: Dehacked support - monsters infight
+const int bfgcells = 40;      // used in p_pspr.c
 // Ty 03/07/98 - end deh externals
 
 // a weapon is found with two clip loads,
 // a big item has five clip loads
-int maxammo[NUMAMMO]  = {200, 50, 300, 50};
-int clipammo[NUMAMMO] = { 10,  4,  20,  1};
+const int maxammo[NUMAMMO]  = {200, 50, 300, 50};
+const int clipammo[NUMAMMO] = { 10,  4,  20,  1};
 
 //
 // GET STUFF
@@ -114,7 +114,7 @@ static boolean P_GiveAmmo(player_t *player, ammotype_t ammo, int num)
     num = clipammo[ammo]/2;
 
   // give double ammo in trainer mode, you'll need in nightmare
-  if (gameskill == sk_baby || gameskill == sk_nightmare)
+  if (_g->gameskill == sk_baby || _g->gameskill == sk_nightmare)
     num <<= 1;
 
   oldammo = player->ammo[ammo];
@@ -172,26 +172,6 @@ static boolean P_GiveWeapon(player_t *player, weapontype_t weapon, boolean dropp
 {
   boolean gaveammo;
   boolean gaveweapon;
-
-  if (netgame && deathmatch!=2 && !dropped)
-    {
-      // leave placed weapons forever on net games
-      if (player->weaponowned[weapon])
-        return false;
-
-      player->bonuscount += BONUSADD;
-      player->weaponowned[weapon] = true;
-
-      P_GiveAmmo(player, weaponinfo[weapon].ammo, deathmatch ? 5 : 2);
-
-      player->pendingweapon = weapon;
-      /* cph 20028/10 - for old-school DM addicts, allow old behavior
-       * where only consoleplayer's pickup sounds are heard */
-      // displayplayer, not consoleplayer, for viewing multiplayer demos
-      if (!comp[comp_sound] || player == &players[displayplayer])
-        S_StartSound (player->mo, sfx_wpnup|PICKUP_SOUND); // killough 4/25/98
-      return false;
-    }
 
   if (weaponinfo[weapon].ammo != am_noammo)
     {
@@ -306,7 +286,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
     return;        // out of reach
 
   sound = sfx_itemup;
-  player = toucher->player;
+  player = P_MobjIsPlayer(toucher);
 
   // Dead thing touching.
   // Can happen with a sliding player corpse.
@@ -320,13 +300,13 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
     case SPR_ARM1:
       if (!P_GiveArmor (player, green_armor_class))
         return;
-      player->message = s_GOTARMOR; // Ty 03/22/98 - externalized
+      player->message = GOTARMOR; // Ty 03/22/98 - externalized
       break;
 
     case SPR_ARM2:
       if (!P_GiveArmor (player, blue_armor_class))
         return;
-      player->message = s_GOTMEGA; // Ty 03/22/98 - externalized
+      player->message = GOTMEGA; // Ty 03/22/98 - externalized
       break;
 
         // bonus items
@@ -335,7 +315,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
       if (player->health > (maxhealth * 2))
         player->health = (maxhealth * 2);
       player->mo->health = player->health;
-      player->message = s_GOTHTHBONUS; // Ty 03/22/98 - externalized
+      player->message = GOTHTHBONUS; // Ty 03/22/98 - externalized
       break;
 
     case SPR_BON2:
@@ -344,7 +324,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
         player->armorpoints = max_armor;
       if (!player->armortype)
         player->armortype = green_armor_class;
-      player->message = s_GOTARMBONUS; // Ty 03/22/98 - externalized
+      player->message = GOTARMBONUS; // Ty 03/22/98 - externalized
       break;
 
     case SPR_SOUL:
@@ -352,17 +332,17 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
       if (player->health > max_soul)
         player->health = max_soul;
       player->mo->health = player->health;
-      player->message = s_GOTSUPER; // Ty 03/22/98 - externalized
+      player->message = GOTSUPER; // Ty 03/22/98 - externalized
       sound = sfx_getpow;
       break;
 
     case SPR_MEGA:
-      if (gamemode != commercial)
+      if (_g->gamemode != commercial)
         return;
       player->health = mega_health;
       player->mo->health = player->health;
       P_GiveArmor (player,blue_armor_class);
-      player->message = s_GOTMSPHERE; // Ty 03/22/98 - externalized
+      player->message = GOTMSPHERE; // Ty 03/22/98 - externalized
       sound = sfx_getpow;
       break;
 
@@ -370,57 +350,45 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
         // leave cards for everyone
     case SPR_BKEY:
       if (!player->cards[it_bluecard])
-        player->message = s_GOTBLUECARD; // Ty 03/22/98 - externalized
+        player->message = GOTBLUECARD; // Ty 03/22/98 - externalized
       P_GiveCard (player, it_bluecard);
-      if (!netgame)
         break;
-      return;
 
     case SPR_YKEY:
       if (!player->cards[it_yellowcard])
-        player->message = s_GOTYELWCARD; // Ty 03/22/98 - externalized
+        player->message = GOTYELWCARD; // Ty 03/22/98 - externalized
       P_GiveCard (player, it_yellowcard);
-      if (!netgame)
         break;
-      return;
 
     case SPR_RKEY:
       if (!player->cards[it_redcard])
-        player->message = s_GOTREDCARD; // Ty 03/22/98 - externalized
+        player->message = GOTREDCARD; // Ty 03/22/98 - externalized
       P_GiveCard (player, it_redcard);
-      if (!netgame)
         break;
-      return;
 
     case SPR_BSKU:
       if (!player->cards[it_blueskull])
-        player->message = s_GOTBLUESKUL; // Ty 03/22/98 - externalized
+        player->message = GOTBLUESKUL; // Ty 03/22/98 - externalized
       P_GiveCard (player, it_blueskull);
-      if (!netgame)
         break;
-      return;
 
     case SPR_YSKU:
       if (!player->cards[it_yellowskull])
-        player->message = s_GOTYELWSKUL; // Ty 03/22/98 - externalized
+        player->message = GOTYELWSKUL; // Ty 03/22/98 - externalized
       P_GiveCard (player, it_yellowskull);
-      if (!netgame)
         break;
-      return;
 
     case SPR_RSKU:
       if (!player->cards[it_redskull])
-        player->message = s_GOTREDSKULL; // Ty 03/22/98 - externalized
+        player->message = GOTREDSKULL; // Ty 03/22/98 - externalized
       P_GiveCard (player, it_redskull);
-      if (!netgame)
         break;
-      return;
 
       // medikits, heals
     case SPR_STIM:
       if (!P_GiveBody (player, 10))
         return;
-      player->message = s_GOTSTIM; // Ty 03/22/98 - externalized
+      player->message = GOTSTIM; // Ty 03/22/98 - externalized
       break;
 
     case SPR_MEDI:
@@ -428,9 +396,9 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
         return;
 
       if (player->health < 50) // cph - 25 + the 25 just added, thanks to Quasar for reporting this bug
-        player->message = s_GOTMEDINEED; // Ty 03/22/98 - externalized
+        player->message = GOTMEDINEED; // Ty 03/22/98 - externalized
       else
-        player->message = s_GOTMEDIKIT; // Ty 03/22/98 - externalized
+        player->message = GOTMEDIKIT; // Ty 03/22/98 - externalized
       break;
 
 
@@ -438,14 +406,14 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
     case SPR_PINV:
       if (!P_GivePower (player, pw_invulnerability))
         return;
-      player->message = s_GOTINVUL; // Ty 03/22/98 - externalized
+      player->message = GOTINVUL; // Ty 03/22/98 - externalized
       sound = sfx_getpow;
       break;
 
     case SPR_PSTR:
       if (!P_GivePower (player, pw_strength))
         return;
-      player->message = s_GOTBERSERK; // Ty 03/22/98 - externalized
+      player->message = GOTBERSERK; // Ty 03/22/98 - externalized
       if (player->readyweapon != wp_fist)
         player->pendingweapon = wp_fist;
       sound = sfx_getpow;
@@ -454,28 +422,28 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
     case SPR_PINS:
       if (!P_GivePower (player, pw_invisibility))
         return;
-      player->message = s_GOTINVIS; // Ty 03/22/98 - externalized
+      player->message = GOTINVIS; // Ty 03/22/98 - externalized
       sound = sfx_getpow;
       break;
 
     case SPR_SUIT:
       if (!P_GivePower (player, pw_ironfeet))
         return;
-      player->message = s_GOTSUIT; // Ty 03/22/98 - externalized
+      player->message = GOTSUIT; // Ty 03/22/98 - externalized
       sound = sfx_getpow;
       break;
 
     case SPR_PMAP:
       if (!P_GivePower (player, pw_allmap))
         return;
-      player->message = s_GOTMAP; // Ty 03/22/98 - externalized
+      player->message = GOTMAP; // Ty 03/22/98 - externalized
       sound = sfx_getpow;
       break;
 
     case SPR_PVIS:
       if (!P_GivePower (player, pw_infrared))
         return;
-      player->message = s_GOTVISOR; // Ty 03/22/98 - externalized
+      player->message = GOTVISOR; // Ty 03/22/98 - externalized
       sound = sfx_getpow;
       break;
 
@@ -491,49 +459,49 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
           if (!P_GiveAmmo (player,am_clip,1))
             return;
         }
-      player->message = s_GOTCLIP; // Ty 03/22/98 - externalized
+      player->message = GOTCLIP; // Ty 03/22/98 - externalized
       break;
 
     case SPR_AMMO:
       if (!P_GiveAmmo (player, am_clip,5))
         return;
-      player->message = s_GOTCLIPBOX; // Ty 03/22/98 - externalized
+      player->message = GOTCLIPBOX; // Ty 03/22/98 - externalized
       break;
 
     case SPR_ROCK:
       if (!P_GiveAmmo (player, am_misl,1))
         return;
-      player->message = s_GOTROCKET; // Ty 03/22/98 - externalized
+      player->message = GOTROCKET; // Ty 03/22/98 - externalized
       break;
 
     case SPR_BROK:
       if (!P_GiveAmmo (player, am_misl,5))
         return;
-      player->message = s_GOTROCKBOX; // Ty 03/22/98 - externalized
+      player->message = GOTROCKBOX; // Ty 03/22/98 - externalized
       break;
 
     case SPR_CELL:
       if (!P_GiveAmmo (player, am_cell,1))
         return;
-      player->message = s_GOTCELL; // Ty 03/22/98 - externalized
+      player->message = GOTCELL; // Ty 03/22/98 - externalized
       break;
 
     case SPR_CELP:
       if (!P_GiveAmmo (player, am_cell,5))
         return;
-      player->message = s_GOTCELLBOX; // Ty 03/22/98 - externalized
+      player->message = GOTCELLBOX; // Ty 03/22/98 - externalized
       break;
 
     case SPR_SHEL:
       if (!P_GiveAmmo (player, am_shell,1))
         return;
-      player->message = s_GOTSHELLS; // Ty 03/22/98 - externalized
+      player->message = GOTSHELLS; // Ty 03/22/98 - externalized
       break;
 
     case SPR_SBOX:
       if (!P_GiveAmmo (player, am_shell,5))
         return;
-      player->message = s_GOTSHELLBOX; // Ty 03/22/98 - externalized
+      player->message = GOTSHELLBOX; // Ty 03/22/98 - externalized
       break;
 
     case SPR_BPAK:
@@ -545,56 +513,56 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
         }
       for (i=0 ; i<NUMAMMO ; i++)
         P_GiveAmmo (player, i, 1);
-      player->message = s_GOTBACKPACK; // Ty 03/22/98 - externalized
+      player->message = GOTBACKPACK; // Ty 03/22/98 - externalized
       break;
 
         // weapons
     case SPR_BFUG:
       if (!P_GiveWeapon (player, wp_bfg, false) )
         return;
-      player->message = s_GOTBFG9000; // Ty 03/22/98 - externalized
+      player->message = GOTBFG9000; // Ty 03/22/98 - externalized
       sound = sfx_wpnup;
       break;
 
     case SPR_MGUN:
       if (!P_GiveWeapon (player, wp_chaingun, (special->flags&MF_DROPPED)!=0) )
         return;
-      player->message = s_GOTCHAINGUN; // Ty 03/22/98 - externalized
+      player->message = GOTCHAINGUN; // Ty 03/22/98 - externalized
       sound = sfx_wpnup;
       break;
 
     case SPR_CSAW:
       if (!P_GiveWeapon (player, wp_chainsaw, false) )
         return;
-      player->message = s_GOTCHAINSAW; // Ty 03/22/98 - externalized
+      player->message = GOTCHAINSAW; // Ty 03/22/98 - externalized
       sound = sfx_wpnup;
       break;
 
     case SPR_LAUN:
       if (!P_GiveWeapon (player, wp_missile, false) )
         return;
-      player->message = s_GOTLAUNCHER; // Ty 03/22/98 - externalized
+      player->message = GOTLAUNCHER; // Ty 03/22/98 - externalized
       sound = sfx_wpnup;
       break;
 
     case SPR_PLAS:
       if (!P_GiveWeapon (player, wp_plasma, false) )
         return;
-      player->message = s_GOTPLASMA; // Ty 03/22/98 - externalized
+      player->message = GOTPLASMA; // Ty 03/22/98 - externalized
       sound = sfx_wpnup;
       break;
 
     case SPR_SHOT:
       if (!P_GiveWeapon (player, wp_shotgun, (special->flags&MF_DROPPED)!=0 ) )
         return;
-      player->message = s_GOTSHOTGUN; // Ty 03/22/98 - externalized
+      player->message = GOTSHOTGUN; // Ty 03/22/98 - externalized
       sound = sfx_wpnup;
       break;
 
     case SPR_SGN2:
       if (!P_GiveWeapon(player, wp_supershotgun, (special->flags&MF_DROPPED)!=0))
         return;
-      player->message = s_GOTSHOTGUN2; // Ty 03/22/98 - externalized
+      player->message = GOTSHOTGUN2; // Ty 03/22/98 - externalized
       sound = sfx_wpnup;
       break;
 
@@ -610,7 +578,7 @@ void P_TouchSpecialThing(mobj_t *special, mobj_t *toucher)
   /* cph 20028/10 - for old-school DM addicts, allow old behavior
    * where only consoleplayer's pickup sounds are heard */
   // displayplayer, not consoleplayer, for viewing multiplayer demos
-  if (!comp[comp_sound] || player == &players[displayplayer])
+  if (player == &_g->player)
     S_StartSound (player->mo, sound | PICKUP_SOUND);   // killough 4/25/98
 }
 
@@ -631,74 +599,41 @@ static void P_KillMobj(mobj_t *source, mobj_t *target)
   target->flags |= MF_CORPSE|MF_DROPOFF;
   target->height >>= 2;
 
-  if (!((target->flags ^ MF_COUNTKILL) & (MF_FRIEND | MF_COUNTKILL)))
-    totallive--;
 
-  if (source && source->player)
+  if (!((target->flags ^ MF_COUNTKILL) & (MF_FRIEND | MF_COUNTKILL)))
+    _g->totallive--;
+
+  if (source && P_MobjIsPlayer(source))
     {
       // count for intermission
       if (target->flags & MF_COUNTKILL)
-        source->player->killcount++;
-      if (target->player)
-        source->player->frags[target->player-players]++;
+        P_MobjIsPlayer(source)->killcount++;
     }
-    else
-      if (target->flags & MF_COUNTKILL) { /* Add to kills tally */
-  if ((compatibility_level < lxdoom_1_compatibility) || !netgame) {
-    if (!netgame)
+  else if (target->flags & MF_COUNTKILL)
+  { /* Add to kills tally */
+
       // count all monster deaths,
       // even those caused by other monsters
-      players[0].killcount++;
-  } else
-    if (!deathmatch) {
-      // try and find a player to give the kill to, otherwise give the
-      // kill to a random player.  this fixes the missing monsters bug
-      // in coop - rain
-      // CPhipps - not a bug as such, but certainly an inconsistency.
-      if (target->lastenemy && target->lastenemy->health > 0
-    && target->lastenemy->player) // Fighting a player
-          target->lastenemy->player->killcount++;
-        else {
-        // cph - randomely choose a player in the game to be credited
-        //  and do it uniformly between the active players
-        unsigned int activeplayers = 0, player, i;
+      _g->player.killcount++;
 
-        for (player = 0; player<MAXPLAYERS; player++)
-    if (playeringame[player])
-      activeplayers++;
+  }
 
-        if (activeplayers) {
-    player = P_Random(pr_friends) % activeplayers;
-
-    for (i=0; i<MAXPLAYERS; i++)
-      if (playeringame[i])
-        if (!player--)
-          players[i].killcount++;
-        }
-      }
-    }
-      }
-
-  if (target->player)
+  if (P_MobjIsPlayer(target))
     {
-      // count environment kills against you
-      if (!source)
-        target->player->frags[target->player-players]++;
-
       target->flags &= ~MF_SOLID;
-      target->player->playerstate = PST_DEAD;
-      P_DropWeapon (target->player);
+      _g->player.playerstate = PST_DEAD;
+      P_DropWeapon (&_g->player);
 
-      if (target->player == &players[consoleplayer] && (automapmode & am_active))
+      if (_g->automapmode & am_active)
         AM_Stop();    // don't die in auto map; switch view prior to dying
     }
 
-  if (target->health < -target->info->spawnhealth && target->info->xdeathstate)
-    P_SetMobjState (target, target->info->xdeathstate);
+  if (target->health < -mobjinfo[target->type].spawnhealth && mobjinfo[target->type].xdeathstate)
+    P_SetMobjState (target, mobjinfo[target->type].xdeathstate);
   else
-    P_SetMobjState (target, target->info->deathstate);
+    P_SetMobjState (target, mobjinfo[target->type].deathstate);
 
-  target->tics -= P_Random(pr_killtics)&3;
+  target->tics -= P_Random()&3;
 
   if (target->tics < 1)
     target->tics = 1;
@@ -707,24 +642,31 @@ static void P_KillMobj(mobj_t *source, mobj_t *target)
   // This determines the kind of object spawned
   // during the death frame of a thing.
 
-  switch (target->type)
-    {
-    case MT_WOLFSS:
-    case MT_POSSESSED:
-      item = MT_CLIP;
-      break;
+  if( (_g->player.cheats & CF_ENEMY_ROCKETS) && (target->type >= MT_POSSESSED) && (target->type <= MT_KEEN) )
+  {
+    item = MT_MISC27; //Everyone drops a rocket launcher.
+  }
+  else
+  {
+      switch (target->type)
+      {
+      case MT_WOLFSS:
+      case MT_POSSESSED:
+          item = MT_CLIP;
+          break;
 
-    case MT_SHOTGUY:
-      item = MT_SHOTGUN;
-      break;
+      case MT_SHOTGUY:
+          item = MT_SHOTGUN;
+          break;
 
-    case MT_CHAINGUY:
-      item = MT_CHAINGUN;
-      break;
+      case MT_CHAINGUY:
+          item = MT_CHAINGUN;
+          break;
 
-    default:
-      return;
-    }
+      default:
+          return;
+      }
+  }
 
   mo = P_SpawnMobj (target->x,target->y,ONFLOORZ, item);
   mo->flags |= MF_DROPPED;    // special versions of items
@@ -748,7 +690,7 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
   boolean justhit = false;          /* killough 11/98 */
 
   /* killough 8/31/98: allow bouncers to take damage */
-  if (!(target->flags & (MF_SHOOTABLE | MF_BOUNCES)))
+  if (!(target->flags & (MF_SHOOTABLE)))
     return; // shouldn't happen...
 
   if (target->health <= 0)
@@ -757,8 +699,8 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
   if (target->flags & MF_SKULLFLY)
     target->momx = target->momy = target->momz = 0;
 
-  player = target->player;
-  if (player && gameskill == sk_baby)
+  player = P_MobjIsPlayer(target);
+  if (player && _g->gameskill == sk_baby)
     damage >>= 1;   // take half damage in trainer mode
 
   // Some close combat weapons should not
@@ -766,18 +708,18 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
   // thus kick away unless using the chainsaw.
 
   if (inflictor && !(target->flags & MF_NOCLIP) &&
-      (!source || !source->player ||
-       source->player->readyweapon != wp_chainsaw))
+      (!source || !P_MobjIsPlayer(source) ||
+       P_MobjIsPlayer(source)->readyweapon != wp_chainsaw))
     {
       unsigned ang = R_PointToAngle2 (inflictor->x, inflictor->y,
                                       target->x,    target->y);
 
-      fixed_t thrust = damage*(FRACUNIT>>3)*100/target->info->mass;
+      fixed_t thrust = damage*(FRACUNIT>>3)*100/mobjinfo[target->type].mass;
 
       // make fall forwards sometimes
       if ( damage < 40 && damage > target->health
            && target->z - inflictor->z > 64*FRACUNIT
-           && P_Random(pr_damagemobj) & 1)
+           && P_Random() & 1)
         {
           ang += ANG180;
           thrust *= 4;
@@ -786,10 +728,6 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
       ang >>= ANGLETOFINESHIFT;
       target->momx += FixedMul (thrust, finecosine[ang]);
       target->momy += FixedMul (thrust, finesine[ang]);
-
-      /* killough 11/98: thrust objects hanging off ledges */
-      if (target->intflags & MIF_FALLING && target->gear >= MAXGEAR)
-        target->gear = 0;
     }
 
   // player specific
@@ -803,7 +741,7 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
       // ignore damage in GOD mode, or with INVUL power.
       // killough 3/26/98: make god mode 100% god mode in non-compat mode
 
-      if ((damage < 1000 || (!comp[comp_god] && (player->cheats&CF_GODMODE))) &&
+      if ((damage < 1000 || ((player->cheats&CF_GODMODE))) &&
           (player->cheats&CF_GODMODE || player->powers[pw_invulnerability]))
         return;
 
@@ -839,39 +777,18 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
       return;
     }
 
-  // killough 9/7/98: keep track of targets so that friends can help friends
-  if (mbf_features)
-    {
       /* If target is a player, set player's target to source,
        * so that a friend can tell who's hurting a player
        */
       if (player)
   P_SetTarget(&target->target, source);
 
-      /* killough 9/8/98:
-       * If target's health is less than 50%, move it to the front of its list.
-       * This will slightly increase the chances that enemies will choose to
-       * "finish it off", but its main purpose is to alert friends of danger.
-       */
-      if (target->health*2 < target->info->spawnhealth)
-  {
-    thinker_t *cap = &thinkerclasscap[target->flags & MF_FRIEND ?
-             th_friends : th_enemies];
-    (target->thinker.cprev->cnext = target->thinker.cnext)->cprev =
-      target->thinker.cprev;
-    (target->thinker.cnext = cap->cnext)->cprev = &target->thinker;
-    (target->thinker.cprev = cap)->cnext = &target->thinker;
-  }
-    }
-
-  if (P_Random (pr_painchance) < target->info->painchance &&
-      !(target->flags & MF_SKULLFLY)) { //killough 11/98: see below
-    if (mbf_features)
+  if (P_Random () < mobjinfo[target->type].painchance &&
+      !(target->flags & MF_SKULLFLY))
+  { //killough 11/98: see below
       justhit = true;
-    else
-      target->flags |= MF_JUSTHIT;    // fight back!
 
-    P_SetMobjState(target, target->info->painstate);
+    P_SetMobjState(target, mobjinfo[target->type].painstate);
   }
 
   target->reactiontime = 0;           // we're awake now...
@@ -879,10 +796,7 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
   /* killough 9/9/98: cleaned up, made more consistent: */
 
   if (source && source != target && source->type != MT_VILE &&
-      (!target->threshold || target->type == MT_VILE) &&
-      ((source->flags ^ target->flags) & MF_FRIEND ||
-       monster_infighting ||
-       !mbf_features))
+      (!target->threshold || target->type == MT_VILE))
     {
       /* if not intent on another player, chase after this one
        *
@@ -892,17 +806,16 @@ void P_DamageMobj(mobj_t *target,mobj_t *inflictor, mobj_t *source, int damage)
        */
 
       if (!target->lastenemy || target->lastenemy->health <= 0 ||
-    (!mbf_features ?
-     !target->lastenemy->player :
+    (
      !((target->flags ^ target->lastenemy->flags) & MF_FRIEND) &&
      target->target != source)) // remember last enemy - killough
   P_SetTarget(&target->lastenemy, target->target);
 
       P_SetTarget(&target->target, source);       // killough 11/98
       target->threshold = BASETHRESHOLD;
-      if (target->state == &states[target->info->spawnstate]
-          && target->info->seestate != S_NULL)
-        P_SetMobjState (target, target->info->seestate);
+      if (target->state == &states[mobjinfo[target->type].spawnstate]
+          && mobjinfo[target->type].seestate != S_NULL)
+        P_SetMobjState (target, mobjinfo[target->type].seestate);
     }
 
   /* killough 11/98: Don't attack a friend, unless hit by that friend.

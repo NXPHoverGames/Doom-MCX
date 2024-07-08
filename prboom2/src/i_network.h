@@ -34,16 +34,7 @@
 #include "config.h"
 #endif
 
-#ifdef USE_SDL_NET
- #include "SDL_net.h"
- #define UDP_SOCKET UDPsocket
- #define UDP_PACKET UDPpacket
- #define AF_INET
- #define UDP_CHANNEL int
- extern UDP_SOCKET udp_socket;
-#else
- #define UDP_CHANNEL struct sockaddr
-#endif
+#define UDP_CHANNEL struct sockaddr
 
 #ifndef IPPORT_RESERVED
         #define IPPORT_RESERVED 1024
@@ -53,14 +44,6 @@ void I_InitNetwork(void);
 size_t I_GetPacket(packet_header_t* buffer, size_t buflen);
 void I_SendPacket(packet_header_t* packet, size_t len);
 void I_WaitForPacket(int ms);
-
-#ifdef USE_SDL_NET
-UDP_SOCKET I_Socket(Uint16 port);
-int I_ConnectToServer(const char *serv);
-UDP_CHANNEL I_RegisterPlayer(IPaddress *ipaddr);
-void I_UnRegisterPlayer(UDP_CHANNEL channel);
-extern IPaddress sentfrom_addr;
-#endif
 
 #ifdef AF_INET
 void I_SendPacketTo(packet_header_t* packet, size_t len, UDP_CHANNEL *to);

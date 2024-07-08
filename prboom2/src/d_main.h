@@ -41,25 +41,17 @@
 #pragma interface
 #endif
 
-/* CPhipps - removed wadfiles[] stuff to w_wad.h */
-
-extern char basesavegame[];     // killough 2/16/98: savegame path
-
-//jff 1/24/98 make command line copies of play modes available
-extern boolean clnomonsters; // checkparm of -nomonsters
-extern boolean clrespawnparm;  // checkparm of -respawn
-extern boolean clfastparm; // checkparm of -fast
 //jff end of external declaration of command line playmode
 
-extern boolean nosfxparm;
-extern boolean nomusicparm;
-extern int ffmap;
+extern const boolean nosfxparm;
+extern const boolean nomusicparm;
+
+extern const boolean nodrawers;
 
 // Called by IO functions when input is detected.
 void D_PostEvent(event_t* ev);
 
 // Demo stuff
-extern boolean advancedemo;
 void D_AdvanceDemo(void);
 void D_DoAdvanceDemo (void);
 
@@ -67,16 +59,10 @@ void D_DoAdvanceDemo (void);
 // BASE LEVEL
 //
 
-void D_Display(void);
 void D_PageTicker(void);
 void D_StartTitle(void);
 void D_DoomMain(void);
-void D_AddFile (const char *file, wad_source_t source);
 
-/* cph - MBF-like wad/deh/bex autoload code */
-/* proff 2001/7/1 - added prboom.wad as last entry so it's always loaded and
-   doesn't overlap with the cfg settings */
-#define MAXLOADFILES 3
-extern const char *wad_files[MAXLOADFILES], *deh_files[MAXLOADFILES];
+
 
 #endif

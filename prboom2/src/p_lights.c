@@ -40,6 +40,8 @@
 #include "p_spec.h"
 #include "p_tick.h"
 
+#include "global_data.h"
+
 //////////////////////////////////////////////////////////
 //
 // Lighting action routines, called once per tick
@@ -61,7 +63,7 @@ void T_FireFlicker (fireflicker_t* flick)
   if (--flick->count)
     return;
 
-  amount = (P_Random(pr_lights)&3)*16;
+  amount = (P_Random()&3)*16;
 
   if (flick->sector->lightlevel - amount < flick->minlight)
     flick->sector->lightlevel = flick->minlight;
@@ -87,12 +89,12 @@ void T_LightFlash (lightflash_t* flash)
   if (flash->sector->lightlevel == flash->maxlight)
   {
     flash-> sector->lightlevel = flash->minlight;
-    flash->count = (P_Random(pr_lights)&flash->mintime)+1;
+    flash->count = (P_Random()&flash->mintime)+1;
   }
   else
   {
     flash-> sector->lightlevel = flash->maxlight;
-    flash->count = (P_Random(pr_lights)&flash->maxtime)+1;
+    flash->count = (P_Random()&flash->maxtime)+1;
   }
 
 }
@@ -221,7 +223,7 @@ void P_SpawnLightFlash (sector_t* sector)
   flash->minlight = P_FindMinSurroundingLight(sector,sector->lightlevel);
   flash->maxtime = 64;
   flash->mintime = 7;
-  flash->count = (P_Random(pr_lights)&flash->maxtime)+1;
+  flash->count = (P_Random()&flash->maxtime)+1;
 }
 
 //
@@ -260,7 +262,7 @@ void P_SpawnStrobeFlash
   sector->special &= ~31; //jff 3/14/98 clear non-generalized sector type
 
   if (!inSync)
-    flash->count = (P_Random(pr_lights)&7)+1;
+    flash->count = (P_Random()&7)+1;
   else
     flash->count = 1;
 }
@@ -307,7 +309,7 @@ void P_SpawnGlowingLight(sector_t*  sector)
 //
 // jff 2/12/98 added int return value, fixed return
 //
-int EV_StartLightStrobing(line_t* line)
+int EV_StartLightStrobing(const line_t* line)
 {
   int   secnum;
   sector_t* sec;
@@ -316,7 +318,7 @@ int EV_StartLightStrobing(line_t* line)
   // start lights strobing in all sectors tagged same as line
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
     // if already doing a lighting function, don't start a second
     if (P_SectorActive(lighting_special,sec)) //jff 2/22/98
       continue;
@@ -336,7 +338,7 @@ int EV_StartLightStrobing(line_t* line)
 //
 // jff 2/12/98 added int return value, fixed return
 //
-int EV_TurnTagLightsOff(line_t* line)
+int EV_TurnTagLightsOff(const line_t* line)
 {
   int j;
 
@@ -345,7 +347,7 @@ int EV_TurnTagLightsOff(line_t* line)
   // killough 10/98: replaced inefficient search with fast search
   for (j = -1; (j = P_FindSectorFromLineTag(line,j)) >= 0;)
     {
-      sector_t *sector = sectors + j, *tsec;
+      sector_t *sector = _g->sectors + j, *tsec;
       int i, min = sector->lightlevel;
       // find min neighbor light level
       for (i = 0;i < sector->linecount; i++)
@@ -368,7 +370,7 @@ int EV_TurnTagLightsOff(line_t* line)
 //
 // jff 2/12/98 added int return value, fixed return
 //
-int EV_LightTurnOn(line_t *line, int bright)
+int EV_LightTurnOn(const line_t *line, int bright)
 {
   int i;
 
@@ -377,7 +379,7 @@ int EV_LightTurnOn(line_t *line, int bright)
   // killough 10/98: replace inefficient search with fast search
   for (i = -1; (i = P_FindSectorFromLineTag(line,i)) >= 0;)
     {
-      sector_t *temp, *sector = sectors+i;
+      sector_t *temp, *sector = _g->sectors+i;
       int j, tbright = bright; //jff 5/17/98 search for maximum PER sector
 
       // bright = 0 means to search for highest light level surrounding sector
@@ -389,11 +391,6 @@ int EV_LightTurnOn(line_t *line, int bright)
       tbright = temp->lightlevel;
 
       sector->lightlevel = tbright;
-
-      //jff 5/17/98 unless compatibility optioned
-      //then maximum near ANY tagged sector
-      if (comp[comp_model])
-  bright = tbright;
     }
   return 1;
 }
@@ -411,7 +408,7 @@ int EV_LightTurnOn(line_t *line, int bright)
  * Returns true
  */
 
-int EV_LightTurnOnPartway(line_t *line, fixed_t level)
+int EV_LightTurnOnPartway(const line_t *line, fixed_t level)
 {
   int i;
 
@@ -423,7 +420,7 @@ int EV_LightTurnOnPartway(line_t *line, fixed_t level)
   // search all sectors for ones with same tag as activating line
   for (i = -1; (i = P_FindSectorFromLineTag(line,i)) >= 0;)
     {
-      sector_t *temp, *sector = sectors+i;
+      sector_t *temp, *sector = _g->sectors+i;
       int j, bright = 0, min = sector->lightlevel;
 
       for (j = 0; j < sector->linecount; j++)

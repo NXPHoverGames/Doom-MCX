@@ -48,8 +48,8 @@
 // a rectangular area within the texture rectangle.
 typedef struct
 {
-  int originx, originy;  // Block origin, which has already accounted
-  int patch;             // for the internal origin of the patch.
+  short originx, originy;  // Block origin, which has already accounted
+  const patch_t* patch;    // for the internal origin of the patch.
 } texpatch_t;
 
 //
@@ -60,26 +60,22 @@ typedef struct
 
 typedef struct
 {
-  char  name[8];         // Keep name for switch changing, etc.
-  int   next, index;     // killough 1/31/98: used in hashing algorithm
+  const char*  name;         // Keep name for switch changing, etc.
+  //int   next, index;     // killough 1/31/98: used in hashing algorithm
   // CPhipps - moved arrays with per-texture entries to elements here
-  unsigned  widthmask;
+  unsigned short  widthmask;
   // CPhipps - end of additions
   short width, height;
-  short patchcount;      // All the patches[patchcount] are drawn
+
+  unsigned char overlapped;
+  unsigned char patchcount;      // All the patches[patchcount] are drawn
   texpatch_t patches[1]; // back-to-front into the cached texture.
 } texture_t;
 
-extern int numtextures;
-extern texture_t **textures;
-
-
-const byte *R_GetTextureColumn(const rpatch_t *texpatch, int col);
 
 
 // I/O, setting up the stuff.
 void R_InitData (void);
-void R_PrecacheLevel (void);
 
 
 // Retrieval.
@@ -92,18 +88,11 @@ int R_FlatNumForName (const char* name);   // killough -- const added
 //  there is no texture (i.e. "-") specified.
 /* cph 2006/07/23 - defined value for no-texture marker (texture "-" in the WAD file) */
 #define NO_TEXTURE 0
-int PUREFUNC R_TextureNumForName (const char *name);    // killough -- const added; cph - now PUREFUNC
-int PUREFUNC R_SafeTextureNumForName (const char *name, int snum);
-int PUREFUNC R_CheckTextureNumForName (const char *name);
+int R_CheckTextureNumForName (const char *name);
 
-void R_InitTranMap(int);      // killough 3/6/98: translucency initialization
-int R_ColormapNumForName(const char *name);      // killough 4/4/98
-/* cph 2001/11/17 - new func to do lighting calcs and get suitable colour map */
-const lighttable_t* R_ColourMap(int lightlevel, fixed_t spryscale);
+const texture_t* R_GetTexture(int texture);
+int R_LoadTextureByName(const char* tex_name);
 
-extern const byte *main_tranmap, *tranmap;
 
-/* Proff - Added for OpenGL - cph - const char* param */
-void R_SetPatchNum(patchnum_t *patchnum, const char *name);
 
 #endif

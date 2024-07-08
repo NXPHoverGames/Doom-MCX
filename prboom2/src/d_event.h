@@ -48,8 +48,6 @@ typedef enum
 {
   ev_keydown,
   ev_keyup,
-  ev_mouse,
-  ev_joystick
 } evtype_t;
 
 // Event structure.
@@ -88,10 +86,6 @@ typedef enum
   // Use button, to open doors, activate switches.
   BT_USE          = 2,
 
-  // Flag: game events, not really buttons.
-  BT_SPECIAL      = 128,
-  BT_SPECIALMASK  = 3,
-
   // Flag, weapon change pending.
   // If true, the next 4 bits hold weapon num.
   BT_CHANGE       = 4,
@@ -101,25 +95,7 @@ typedef enum
   BT_WEAPONMASK   = (8+16+32+64), // extended to pick up SSG        // phares
   BT_WEAPONSHIFT  = 3,
 
-  // Special events
-  BTS_LOADGAME    = 0, // Loads a game
-  // Pause the game.
-  BTS_PAUSE       = 1,
-  // Save the game at each console.
-  BTS_SAVEGAME    = 2,
-  BTS_RESTARTLEVEL= 3, // Restarts the current level
-
-  // Savegame slot numbers occupy the second byte of buttons.
-  BTS_SAVEMASK    = (4+8+16),
-  BTS_SAVESHIFT   = 2,
-
 } buttoncode_t;
 
-
-//
-// GLOBAL VARIABLES
-//
-
-extern gameaction_t gameaction;
 
 #endif

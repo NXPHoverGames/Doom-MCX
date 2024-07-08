@@ -1265,8 +1265,8 @@ typedef struct
 } state_t;
 
 /* these are in info.c */
-extern state_t  states[NUMSTATES];
-extern const char *sprnames[]; /* 1/17/98 killough - CPhipps - const */
+extern const state_t  states[NUMSTATES];
+extern const char* const sprnames[]; /* 1/17/98 killough - CPhipps - const */
 
 /********************************************************************
  * Thing enumeration -- must match info.c                           *
@@ -1412,28 +1412,7 @@ typedef enum {
   MT_MISC84,
   MT_MISC85,
   MT_MISC86,
-  MT_PUSH,    /* controls push source - phares */
-  MT_PULL,    /* controls pull source - phares 3/20/98 */
-
-#ifdef DOGS
-  MT_DOGS,    /* killough 7/19/98: Marine's best friend */
-#endif
-
-  /* proff 11/22/98: Andy Baker's stealth monsters (next 12)
-   * cph - moved below the MBF stuff, no need to displace them */
-  MT_STEALTHBABY,
-  MT_STEALTHVILE,
-  MT_STEALTHBRUISER,
-  MT_STEALTHHEAD,
-  MT_STEALTHCHAINGUY,
-  MT_STEALTHSERGEANT,
-  MT_STEALTHKNIGHT,
-  MT_STEALTHIMP,
-  MT_STEALTHFATSO,
-  MT_STEALTHUNDEAD,
-  MT_STEALTHSHOTGUY,
-  MT_STEALTHZOMBIE,
-
+  MT_NOTHING,
   NUMMOBJTYPES  // Counter of how many there are
 } mobjtype_t;
 
@@ -1447,9 +1426,11 @@ typedef enum {
 
 typedef struct
 {
-  int doomednum;    /* Thing number used in id's editor, and now
+  int doomednum;
+  /* Thing number used in id's editor, and now
        probably by every other editor too */
-  int spawnstate;   /* The state (frame) index when this Thing is
+  int spawnstate;
+  /* The state (frame) index when this Thing is
            first created */
   int spawnhealth;  /* The initial hit points for this Thing */
   int seestate;     /* The state when it sees you or wakes up */
@@ -1486,13 +1467,13 @@ typedef struct
   int damage;       /* If this is a missile, how much does it hurt? */
   int activesound;  /* What sound it makes wandering around, once
            in a while.  Chance is 3/256 it will. */
-  uint_64_t flags;  /* Bit masks for lots of things.  See p_mobj.h */
+  unsigned int flags;  /* Bit masks for lots of things.  See p_mobj.h */
   int raisestate;   /* The first state for an Archvile or respawn
            resurrection.  Zero means it won't come
            back to life. */
 } mobjinfo_t;
 
 /* See p_mobj_h for addition more technical info */
-extern mobjinfo_t mobjinfo[NUMMOBJTYPES];
+extern const mobjinfo_t mobjinfo[NUMMOBJTYPES];
 
 #endif

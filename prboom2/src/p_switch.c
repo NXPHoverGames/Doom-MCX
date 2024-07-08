@@ -40,78 +40,96 @@
 #include "sounds.h"
 #include "lprintf.h"
 
-// killough 2/8/98: Remove switch limit
+#include "global_data.h"
 
-static int *switchlist;                           // killough
-static int max_numswitches;                       // killough
-static int numswitches;                           // killough
 
-button_t  buttonlist[MAXBUTTONS];
+
+static const switchlist_t alphSwitchList[] =
+{
+    // Doom shareware episode 1 switches
+    {"SW1BRCOM",	"SW2BRCOM",	1},
+    {"SW1BRN1",	"SW2BRN1",	1},
+    {"SW1BRN2",	"SW2BRN2",	1},
+    {"SW1BRNGN",	"SW2BRNGN",	1},
+    {"SW1BROWN",	"SW2BROWN",	1},
+    {"SW1COMM",	"SW2COMM",	1},
+    {"SW1COMP",	"SW2COMP",	1},
+    {"SW1DIRT",	"SW2DIRT",	1},
+    {"SW1EXIT",	"SW2EXIT",	1},
+    {"SW1GRAY",	"SW2GRAY",	1},
+    {"SW1GRAY1",	"SW2GRAY1",	1},
+    {"SW1METAL",	"SW2METAL",	1},
+    {"SW1PIPE",	"SW2PIPE",	1},
+    {"SW1SLAD",	"SW2SLAD",	1},
+    {"SW1STARG",	"SW2STARG",	1},
+    {"SW1STON1",	"SW2STON1",	1},
+    {"SW1STON2",	"SW2STON2",	1},
+    {"SW1STONE",	"SW2STONE",	1},
+    {"SW1STRTN",	"SW2STRTN",	1},
+
+    // Doom registered episodes 2&3 switches
+    {"SW1BLUE",	"SW2BLUE",	2},
+    {"SW1CMT",		"SW2CMT",	2},
+    {"SW1GARG",	"SW2GARG",	2},
+    {"SW1GSTON",	"SW2GSTON",	2},
+    {"SW1HOT",		"SW2HOT",	2},
+    {"SW1LION",	"SW2LION",	2},
+    {"SW1SATYR",	"SW2SATYR",	2},
+    {"SW1SKIN",	"SW2SKIN",	2},
+    {"SW1VINE",	"SW2VINE",	2},
+    {"SW1WOOD",	"SW2WOOD",	2},
+
+    // Doom II switches
+    {"SW1PANEL",	"SW2PANEL",	3},
+    {"SW1ROCK",	"SW2ROCK",	3},
+    {"SW1MET2",	"SW2MET2",	3},
+    {"SW1WDMET",	"SW2WDMET",	3},
+    {"SW1BRIK",	"SW2BRIK",	3},
+    {"SW1MOD1",	"SW2MOD1",	3},
+    {"SW1ZIM",		"SW2ZIM",	3},
+    {"SW1STON6",	"SW2STON6",	3},
+    {"SW1TEK",		"SW2TEK",	3},
+    {"SW1MARB",	"SW2MARB",	3},
+    {"SW1SKULL",	"SW2SKULL",	3},
+
+    {"\0",		"\0",		0}
+};
+
 
 //
-// P_InitSwitchList()
-//
-// Only called at game initialization in order to list the set of switches
-// and buttons known to the engine. This enables their texture to change
-// when activated, and in the case of buttons, change back after a timeout.
-//
-// This routine modified to read its data from a predefined lump or
-// PWAD lump called SWITCHES rather than a static table in this module to
-// allow wad designers to insert or modify switches.
-//
-// Lump format is an array of byte packed switchlist_t structures, terminated
-// by a structure with episode == -0. The lump can be generated from a
-// text source file using SWANTBLS.EXE, distributed with the BOOM utils.
-// The standard list of switches and animations is contained in the example
-// source text file DEFSWANI.DAT also in the BOOM util distribution.
-//
-// Rewritten by Lee Killough to remove limit 2/8/98
+// P_InitSwitchList
+// Only called at game initialization.
 //
 void P_InitSwitchList(void)
 {
-  int i, index = 0;
-  int episode = (gamemode == registered || gamemode==retail) ?
-                 2 : gamemode == commercial ? 3 : 1;
-  const switchlist_t *alphSwitchList;         //jff 3/23/98 pointer to switch table
-  int lump = W_GetNumForName("SWITCHES"); // cph - new wad lump handling
+    int		i;
+    int		index;
+    int		episode;
 
-  //jff 3/23/98 read the switch table from a predefined lump
-  alphSwitchList = (const switchlist_t *)W_CacheLumpNum(lump);
+    episode = 1;
 
-  for (i=0;;i++)
-  {
-    if (index+1 >= max_numswitches)
-      switchlist = realloc(switchlist, sizeof *switchlist *
-          (max_numswitches = max_numswitches ? max_numswitches*2 : 8));
-    if (SHORT(alphSwitchList[i].episode) <= episode) //jff 5/11/98 endianess
+    if (_g->gamemode == registered || _g->gamemode == retail)
+        episode = 2;
+    else
+        if ( _g->gamemode == commercial )
+            episode = 3;
+
+    for (index = 0,i = 0;i < MAXSWITCHES;i++)
     {
-      int texture1, texture2;
+        if (!alphSwitchList[i].episode)
+        {
+            _g->numswitches = index/2;
+            _g->switchlist[index] = -1;
+            break;
+        }
 
-      if (!SHORT(alphSwitchList[i].episode))
-        break;
-
-      // Ignore switches referencing unknown texture names, instead of exiting.
-      // Warn if either one is missing, but only add if both are valid.
-      texture1 = R_CheckTextureNumForName(alphSwitchList[i].name1);
-      if (texture1 == -1)
-        lprintf(LO_WARN, "P_InitSwitchList: unknown texture %s\n",
-            alphSwitchList[i].name1);
-      texture2 = R_CheckTextureNumForName(alphSwitchList[i].name2);
-      if (texture2 == -1)
-        lprintf(LO_WARN, "P_InitSwitchList: unknown texture %s\n",
-            alphSwitchList[i].name2);
-      if (texture1 != -1 && texture2 != -1) {
-        switchlist[index++] = texture1;
-        switchlist[index++] = texture2;
-      }
+        if (alphSwitchList[i].episode <= episode)
+        {
+            _g->switchlist[index++] = R_CheckTextureNumForName(alphSwitchList[i].name1);
+            _g->switchlist[index++] = R_CheckTextureNumForName(alphSwitchList[i].name2);
+        }
     }
-  }
-
-  numswitches = index/2;
-  switchlist[index] = -1;
-  W_UnlockLumpNum(lump);
 }
-
 //
 // P_StartButton()
 //
@@ -123,7 +141,7 @@ void P_InitSwitchList(void)
 // No return.
 //
 static void P_StartButton
-( line_t*       line,
+( const line_t*       line,
   bwhere_e      w,
   int           texture,
   int           time )
@@ -132,19 +150,19 @@ static void P_StartButton
 
   // See if button is already pressed
   for (i = 0;i < MAXBUTTONS;i++)
-    if (buttonlist[i].btimer && buttonlist[i].line == line)
+    if (_g->buttonlist[i].btimer && _g->buttonlist[i].line == line)
       return;
 
   for (i = 0;i < MAXBUTTONS;i++)
-    if (!buttonlist[i].btimer)    // use first unused element of list
+    if (!_g->buttonlist[i].btimer)    // use first unused element of list
     {
-      buttonlist[i].line = line;
-      buttonlist[i].where = w;
-      buttonlist[i].btexture = texture;
-      buttonlist[i].btimer = time;
+      _g->buttonlist[i].line = line;
+      _g->buttonlist[i].where = w;
+      _g->buttonlist[i].btexture = texture;
+      _g->buttonlist[i].btimer = time;
       /* use sound origin of line itself - no need to compatibility-wrap
        * as the popout code gets it wrong whatever its value */
-      buttonlist[i].soundorg = (mobj_t *)&line->soundorg;
+      _g->buttonlist[i].soundorg = &LN_FRONTSECTOR(line)->soundorg;
       return;
     }
 
@@ -161,59 +179,73 @@ static void P_StartButton
 //
 // No return
 //
-void P_ChangeSwitchTexture
-( line_t*       line,
-  int           useAgain )
+void P_ChangeSwitchTexture (const line_t* line, int useAgain)
 {
-  /* Rearranged a bit to avoid too much code duplication */
-  mobj_t  *soundorg;
-  int     i, sound;
-  short   *texture, *ttop, *tmid, *tbot;
-  bwhere_e position;
+    /* Rearranged a bit to avoid too much code duplication */
+    int     i, sound;
+    short   *texture, ttop, tmid, tbot;
+    bwhere_e position;
 
-  ttop = &sides[line->sidenum[0]].toptexture;
-  tmid = &sides[line->sidenum[0]].midtexture;
-  tbot = &sides[line->sidenum[0]].bottomtexture;
+    ttop = _g->sides[line->sidenum[0]].toptexture;
+    tmid = _g->sides[line->sidenum[0]].midtexture;
+    tbot = _g->sides[line->sidenum[0]].bottomtexture;
 
-  sound = sfx_swtchn;
-  /* use the sound origin of the linedef (its midpoint)
-   * unless in a compatibility mode */
-  soundorg = (mobj_t *)&line->soundorg;
-  if (comp[comp_sound] || compatibility_level < prboom_6_compatibility) {
-    /* usually NULL, unless there is another button already pressed in,
-     * in which case it's the sound origin of that button press... */
-    soundorg = buttonlist->soundorg;
-  } else {
-    // EXIT SWITCH?
-    /* don't do this unless you're in a compatibility mode */
-    // proff - this works as advertised, but I don't like the sound
-    // if (line->special == 11 || line->special == 51) // exit or secret exit
-    //   sound = sfx_swtchx;
-  }
+    sound = sfx_swtchn;
 
-  /* don't zero line->special until after exit switch test */
-  if (!useAgain)
-    line->special = 0;
+    /* don't zero line->special until after exit switch test */
+    if (!useAgain)
+        LN_SPECIAL(line) = 0;
 
-  /* search for a texture to change */
-  texture = NULL; position = 0;
-  for (i = 0;i < numswitches*2;i++) { /* this could be more efficient... */
-    if (switchlist[i] == *ttop) {
-      texture = ttop; position = top; break;
-    } else if (switchlist[i] == *tmid) {
-      texture = tmid; position = middle; break;
-    } else if (switchlist[i] == *tbot) {
-      texture = tbot; position = bottom; break;
+    /* search for a texture to change */
+    texture = NULL;
+    position = 0;
+
+    for (i = 0; i < _g->numswitches*2; i++)
+    {
+        if (_g->switchlist[i] == ttop)
+        {
+            texture = &ttop;
+            position = top;
+            break;
+        }
+        else if (_g->switchlist[i] == tmid)
+        {
+            texture = &tmid;
+            position = middle;
+            break;
+        }
+        else if (_g->switchlist[i] == tbot)
+        {
+            texture = &tbot;
+            position = bottom;
+            break;
+        }
     }
-  }
-  if (texture == NULL)
-    return; /* no switch texture was found to change */
-  *texture = switchlist[i^1];
 
-  S_StartSound(soundorg, sound);
+    if (texture == NULL)
+        return; /* no switch texture was found to change */
 
-  if (useAgain)
-    P_StartButton(line, position, switchlist[i], BUTTONTIME);
+    *texture = _g->switchlist[i^1];
+
+    switch(position)
+    {
+        case top:
+            _g->sides[line->sidenum[0]].toptexture = *texture;
+            break;
+
+        case middle:
+            _g->sides[line->sidenum[0]].midtexture = *texture;
+            break;
+
+        case bottom:
+            _g->sides[line->sidenum[0]].bottomtexture = *texture;
+            break;
+    }
+
+    S_StartSound2(&LN_FRONTSECTOR(line)->soundorg, sound);
+
+    if (useAgain)
+        P_StartButton(line, position, _g->switchlist[i], BUTTONTIME);
 }
 
 
@@ -231,105 +263,104 @@ void P_ChangeSwitchTexture
 boolean
 P_UseSpecialLine
 ( mobj_t*       thing,
-  line_t*       line,
+  const line_t*       line,
   int           side )
 {
 
   // e6y
   // b.m. side test was broken in boom201
-  if ((demoplayback ? (demover != 201) : (compatibility_level != boom_201_compatibility)))
+  if ((_g->demoplayback ? (_g->demover != 201) : (true)))
   if (side) //jff 6/1/98 fix inadvertent deletion of side test
     return false;
 
   //jff 02/04/98 add check here for generalized floor/ceil mover
-  if (!demo_compatibility)
   {
     // pointer to line function is NULL by default, set non-null if
     // line special is push or switch generalized linedef type
-    int (*linefunc)(line_t *line)=NULL;
+    int (*linefunc)(const line_t *line)=NULL;
 
     // check each range of generalized linedefs
-    if ((unsigned)line->special >= GenEnd)
+    if ((unsigned)LN_SPECIAL(line) >= GenEnd)
     {
       // Out of range for GenFloors
     }
-    else if ((unsigned)line->special >= GenFloorBase)
+    else if ((unsigned)LN_SPECIAL(line) >= GenFloorBase)
     {
-      if (!thing->player)
-        if ((line->special & FloorChange) || !(line->special & FloorModel))
+      if (!P_MobjIsPlayer(thing))
+        if ((LN_SPECIAL(line) & FloorChange) || !(LN_SPECIAL(line) & FloorModel))
           return false; // FloorModel is "Allow Monsters" if FloorChange is 0
-      if (!line->tag && ((line->special&6)!=6)) //jff 2/27/98 all non-manual
+      if (!line->tag && ((LN_SPECIAL(line)&6)!=6)) //jff 2/27/98 all non-manual
         return false;                         // generalized types require tag
       linefunc = EV_DoGenFloor;
     }
-    else if ((unsigned)line->special >= GenCeilingBase)
+    else if ((unsigned)LN_SPECIAL(line) >= GenCeilingBase)
     {
-      if (!thing->player)
-        if ((line->special & CeilingChange) || !(line->special & CeilingModel))
+      if (!P_MobjIsPlayer(thing))
+        if ((LN_SPECIAL(line) & CeilingChange) || !(LN_SPECIAL(line) & CeilingModel))
           return false;   // CeilingModel is "Allow Monsters" if CeilingChange is 0
-      if (!line->tag && ((line->special&6)!=6)) //jff 2/27/98 all non-manual
+      if (!line->tag && ((LN_SPECIAL(line)&6)!=6)) //jff 2/27/98 all non-manual
         return false;                         // generalized types require tag
       linefunc = EV_DoGenCeiling;
     }
-    else if ((unsigned)line->special >= GenDoorBase)
+    else if ((unsigned)LN_SPECIAL(line) >= GenDoorBase)
     {
-      if (!thing->player)
+      if (!P_MobjIsPlayer(thing))
       {
-        if (!(line->special & DoorMonster))
+        if (!(LN_SPECIAL(line) & DoorMonster))
           return false;   // monsters disallowed from this door
         if (line->flags & ML_SECRET) // they can't open secret doors either
           return false;
       }
-      if (!line->tag && ((line->special&6)!=6)) //jff 3/2/98 all non-manual
+      if (!line->tag && ((LN_SPECIAL(line)&6)!=6)) //jff 3/2/98 all non-manual
         return false;                         // generalized types require tag
       linefunc = EV_DoGenDoor;
     }
-    else if ((unsigned)line->special >= GenLockedBase)
+    else if ((unsigned)LN_SPECIAL(line) >= GenLockedBase)
     {
-      if (!thing->player)
+      if (!P_MobjIsPlayer(thing))
         return false;   // monsters disallowed from unlocking doors
-      if (!P_CanUnlockGenDoor(line,thing->player))
+      if (!P_CanUnlockGenDoor(line,P_MobjIsPlayer(thing)))
         return false;
-      if (!line->tag && ((line->special&6)!=6)) //jff 2/27/98 all non-manual
+      if (!line->tag && ((LN_SPECIAL(line)&6)!=6)) //jff 2/27/98 all non-manual
         return false;                         // generalized types require tag
 
       linefunc = EV_DoGenLockedDoor;
     }
-    else if ((unsigned)line->special >= GenLiftBase)
+    else if ((unsigned)LN_SPECIAL(line) >= GenLiftBase)
     {
-      if (!thing->player)
-        if (!(line->special & LiftMonster))
+      if (!P_MobjIsPlayer(thing))
+        if (!(LN_SPECIAL(line) & LiftMonster))
           return false; // monsters disallowed
-      if (!line->tag && ((line->special&6)!=6)) //jff 2/27/98 all non-manual
+      if (!line->tag && ((LN_SPECIAL(line)&6)!=6)) //jff 2/27/98 all non-manual
         return false;                         // generalized types require tag
       linefunc = EV_DoGenLift;
     }
-    else if ((unsigned)line->special >= GenStairsBase)
+    else if ((unsigned)LN_SPECIAL(line) >= GenStairsBase)
     {
-      if (!thing->player)
-        if (!(line->special & StairMonster))
+      if (!P_MobjIsPlayer(thing))
+        if (!(LN_SPECIAL(line) & StairMonster))
           return false; // monsters disallowed
-      if (!line->tag && ((line->special&6)!=6)) //jff 2/27/98 all non-manual
+      if (!line->tag && ((LN_SPECIAL(line)&6)!=6)) //jff 2/27/98 all non-manual
         return false;                         // generalized types require tag
       linefunc = EV_DoGenStairs;
     }
-    else if ((unsigned)line->special >= GenCrusherBase)
+    else if ((unsigned)LN_SPECIAL(line) >= GenCrusherBase)
     {
-      if (!thing->player)
-        if (!(line->special & CrusherMonster))
+      if (!P_MobjIsPlayer(thing))
+        if (!(LN_SPECIAL(line) & CrusherMonster))
           return false; // monsters disallowed
-      if (!line->tag && ((line->special&6)!=6)) //jff 2/27/98 all non-manual
+      if (!line->tag && ((LN_SPECIAL(line)&6)!=6)) //jff 2/27/98 all non-manual
         return false;                         // generalized types require tag
       linefunc = EV_DoGenCrusher;
     }
 
     if (linefunc)
-      switch((line->special & TriggerType) >> TriggerTypeShift)
+      switch((LN_SPECIAL(line) & TriggerType) >> TriggerTypeShift)
       {
         case PushOnce:
           if (!side)
             if (linefunc(line))
-              line->special = 0;
+              LN_SPECIAL(line) = 0;
           return true;
         case PushMany:
           if (!side)
@@ -349,13 +380,13 @@ P_UseSpecialLine
   }
 
   // Switches that other things can activate.
-  if (!thing->player)
+  if (!P_MobjIsPlayer(thing))
   {
     // never open secret doors
     if (line->flags & ML_SECRET)
       return false;
 
-    switch(line->special)
+    switch(LN_SPECIAL(line))
     {
       case 1:         // MANUAL DOOR RAISE
       case 32:        // MANUAL BLUE
@@ -370,7 +401,6 @@ P_UseSpecialLine
 
       default:
         return false;
-        break;
     }
   }
 
@@ -378,7 +408,7 @@ P_UseSpecialLine
     return false;
 
   // Dispatch to handler according to linedef type
-  switch (line->special)
+  switch (LN_SPECIAL(line))
   {
     // Manual doors, push type with no tag
     case 1:             // Vertical Door
@@ -413,7 +443,7 @@ P_UseSpecialLine
       /* Exit level
        * killough 10/98: prevent zombies from exiting levels
        */
-      if (thing->player && thing->player->health <= 0 && !comp[comp_zombie])
+      if (P_MobjIsPlayer(thing) && P_MobjIsPlayer(thing)->health <= 0)
       {
         S_StartSound(thing, sfx_noway);
         return false;
@@ -485,7 +515,7 @@ P_UseSpecialLine
 
     case 50:
       // Close Door
-      if (EV_DoDoor(line,close))
+      if (EV_DoDoor(line,dclose))
         P_ChangeSwitchTexture(line,0);
       break;
 
@@ -493,7 +523,7 @@ P_UseSpecialLine
       /* Secret EXIT
        * killough 10/98: prevent zombies from exiting levels
        */
-      if (thing->player && thing->player->health <= 0 && !comp[comp_zombie])
+      if (P_MobjIsPlayer(thing) && P_MobjIsPlayer(thing)->health <= 0)
       {
         S_StartSound(thing, sfx_noway);
         return false;
@@ -523,7 +553,7 @@ P_UseSpecialLine
 
     case 103:
       // Open Door
-      if (EV_DoDoor(line,open))
+      if (EV_DoDoor(line,dopen))
         P_ChangeSwitchTexture(line,0);
       break;
 
@@ -583,8 +613,7 @@ P_UseSpecialLine
       // added inner switch, relaxed check to demo_compatibility
 
     default:
-      if (!demo_compatibility)
-        switch (line->special)
+        switch (LN_SPECIAL(line))
         {
           //jff 1/29/98 added linedef types to fill all functions out so that
           // all possess SR, S1, WR, W1 types
@@ -1012,7 +1041,7 @@ P_UseSpecialLine
     // Buttons (retriggerable switches)
     case 42:
       // Close Door
-      if (EV_DoDoor(line,close))
+      if (EV_DoDoor(line,dclose))
         P_ChangeSwitchTexture(line,1);
       break;
 
@@ -1036,7 +1065,7 @@ P_UseSpecialLine
 
     case 61:
       // Open Door
-      if (EV_DoDoor(line,open))
+      if (EV_DoDoor(line,dopen))
         P_ChangeSwitchTexture(line,1);
       break;
 

@@ -41,8 +41,8 @@
 //
 // Background and foreground screen numbers
 //
-#define BG 4
-#define FG 0
+#define ST_BG 1
+#define ST_FG 0
 
 //
 // Typedefs of widgets
@@ -54,27 +54,25 @@ typedef struct
 {
   // upper right-hand corner
   //  of the number (right-justified)
-  int   x;
-  int   y;
+  short   x;
+  short   y;
 
   // max # of digits in number
-  int width;
+  short width;
 
   // last number value
-  int   oldnum;
+  short   oldnum;
 
   // pointer to current value
-  int*  num;
+  short*  num;
 
   // pointer to boolean stating
   //  whether to update number
   boolean*  on;
 
   // list of patches for 0-9
-  const patchnum_t* p;
+  const patch_t** p;
 
-  // user data
-  int data;
 } st_number_t;
 
 // Percent widget ("child" of number widget,
@@ -85,7 +83,7 @@ typedef struct
   st_number_t   n;
 
   // percent sign graphic
-  const patchnum_t*    p;
+  const patch_t*    p;
 } st_percent_t;
 
 // Multiple Icon widget
@@ -106,10 +104,7 @@ typedef struct
   boolean*    on;
 
   // list of icons
-  const patchnum_t*   p;
-
-  // user data
-  int     data;
+  const patch_t**   p;
 
 } st_multicon_t;
 
@@ -131,7 +126,7 @@ typedef struct
   //  stating whether to update icon
   boolean*    on;
 
-  const patchnum_t*    p;  // icon
+  const patch_t*    p;  // icon
   int     data;   // user data
 } st_binicon_t;
 
@@ -147,10 +142,10 @@ void STlib_init(void);
 
 // Number widget routines
 void STlib_initNum
-( st_number_t* n,
+(st_number_t* n,
   int x,
   int y,
-  const patchnum_t* pl,
+  const patch_t **pl,
   int* num,
   boolean* on,
   int width );
@@ -166,10 +161,10 @@ void STlib_initPercent
 ( st_percent_t* p,
   int x,
   int y,
-  const patchnum_t* pl,
+  const patch_t** pl,
   int* num,
   boolean* on,
-  const patchnum_t* percent );
+  const patch_t* percent );
 
 
 void STlib_updatePercent
@@ -183,7 +178,7 @@ void STlib_initMultIcon
 ( st_multicon_t* mi,
   int x,
   int y,
-  const patchnum_t*   il,
+  const patch_t**   il,
   int* inum,
   boolean* on );
 
@@ -198,12 +193,15 @@ void STlib_initBinIcon
 ( st_binicon_t* b,
   int x,
   int y,
-  const patchnum_t* i,
+  const patch_t* i,
   boolean* val,
   boolean* on );
 
 void STlib_updateBinIcon
 ( st_binicon_t* bi,
   boolean refresh );
+
+void ST_refreshBackground(void);
+
 
 #endif

@@ -37,12 +37,15 @@
 #include "config.h"
 #include "doomtype.h"
 
+#include "m_recip.h"
+
 /*
  * Fixed point, 32bit as 16.16.
  */
 
 #define FRACBITS 16
 #define FRACUNIT (1<<FRACBITS)
+
 
 typedef int fixed_t;
 
@@ -53,171 +56,101 @@ typedef int fixed_t;
  * killough 9/05/98: better code seems to be gotten from using inlined C
  */
 
-#ifdef _MSC_VER
-# ifdef I386_ASM
-#pragma warning( disable : 4035 )
-__inline static int D_abs(int x)
-{
-    __asm
-    {
-        mov eax,x
-        cdq
-        xor eax,edx
-        sub eax,edx
-    }
-}
-# else /* I386_ASM */
-inline static const int D_abs(x)
+inline static int CONSTFUNC D_abs(fixed_t x)
 {
   fixed_t _t = (x),_s;
   _s = _t >> (8*sizeof _t-1);
   return (_t^_s)-_s;
 }
-# endif /* I386_ASM */
-#else /* _MSC_VER */
-#define D_abs(x) ({fixed_t _t = (x), _s = _t >> (8*sizeof _t-1); (_t^_s)-_s;})
-#endif /* _MSC_VER */
 
 /*
  * Fixed Point Multiplication
  */
 
-#ifdef I386_ASM
-# ifdef _MSC_VER
-#pragma warning( disable : 4035 )
-__inline static fixed_t FixedMul(fixed_t a, fixed_t b)
-{
-//    return (fixed_t)((longlong) a*b >> FRACBITS);
-    __asm
-    {
-        mov  eax,a
-        imul b
-        shrd eax,edx,16
-    }
-}
-#pragma warning( default : 4035 )
-# else /* _MSC_VER */
-/* killough 5/10/98: In djgpp, use inlined assembly for performance
- * CPhipps - made __inline__ to inline, as specified in the gcc docs
- * Also made const. Also __asm__ to asm, as in docs. 
- * Replaced inline asm with Julian's version for Eternity dated 6/7/2001
- */
-inline
-static CONSTFUNC fixed_t FixedMul(fixed_t a, fixed_t b)
-{
-  fixed_t result;
-
-  asm (
-      "  imull %2 ;"
-      "  shrdl $16,%%edx,%0 ;"
-      : "=a" (result)           /* eax is always the result */
-      : "0" (a),                /* eax is also first operand */
-        "rm" (b)                /* second operand can be reg or mem */
-      : "%edx", "%cc"           /* edx and condition codes clobbered */
-      );
-
-  return result;
-}
-# endif /* _MSC_VER */
-
-#else /* I386_ASM */
-
 /* CPhipps - made __inline__ to inline, as specified in the gcc docs
  * Also made const */
 
-inline static CONSTFUNC fixed_t FixedMul(fixed_t a, fixed_t b)
-{
-  return (fixed_t)((int_64_t) a*b >> FRACBITS);
-}
-
-#endif /* I386_ASM */
+fixed_t CONSTFUNC FixedMul(fixed_t a, fixed_t b);
 
 /*
  * Fixed Point Division
  */
 
-#ifdef I386_ASM
-
-# ifdef _MSC_VER
-#pragma warning( disable : 4035 )
-__inline static fixed_t FixedDiv(fixed_t a, fixed_t b)
-{
-    // e6y
-    // zg is a master of engineer science.
-    //
-    // Fixed crash with FixedDiv(-2147483648,x)
-    // Exception Number : EXCEPTION_INT_OVERFLOW(C0000095)
-    //
-    // Some other ports (Eternity, Chocolate) return wrong value instead of MAXINT.
-    // For example FixedDiv(-2147483648,-30576) should return INT_MAX instead of 307907126
-    // 307907126 is truncated correct int64 value: 4602874423 - 2^32 = 307907126
-    if ((unsigned)D_abs(a) >> 14 >= (unsigned)D_abs(b))
-        return (a^b)<0 ? INT_MIN : INT_MAX;
-    __asm
-    {
-        mov  eax,a
-        mov  ebx,b
-        mov  edx,eax
-        shl  eax,16     // proff 11/06/98: Changed from sal to shl, I think
-                        // this is better
-        sar  edx,16
-        idiv ebx        // This is needed, because when I used 'idiv b' the
-                        // compiler produced wrong code in a different place
-    }
-}
-#pragma warning( default : 4035 )
-# else /* _MSC_VER */
-/* killough 5/10/98: In djgpp, use inlined assembly for performance
- * killough 9/5/98: optimized to reduce the number of branches
- * CPhipps - made __inline__ to inline, as specified in the gcc docs
- * Also made const, also __asm__ to asm as in docs.
- * Replaced inline asm with Julian's version for Eternity dated 6/7/2001
- */
-inline
-static CONSTFUNC fixed_t FixedDiv(fixed_t a, fixed_t b)
-{
-  //e6y: zg is a master of engineer science
-  if ((unsigned)D_abs(a) >> 14 < (unsigned)D_abs(b))
-    {
-      fixed_t result;
-      asm (
-          " idivl %3 ;"
-	  : "=a" (result)
-	  : "0" (a<<16),
-	    "d" (a>>16),
-	    "rm" (b)
-	  : "%cc"
-	  );
-      return result;
-    }
-  return ((a^b)>>31) ^ INT_MAX;
-}
-# endif /* _MSC_VER */
-
-#else /* I386_ASM */
 /* CPhipps - made __inline__ to inline, as specified in the gcc docs
  * Also made const */
 
-inline static CONSTFUNC fixed_t FixedDiv(fixed_t a, fixed_t b)
+inline static fixed_t CONSTFUNC FixedDiv(fixed_t a, fixed_t b)
 {
-  return ((unsigned)D_abs(a)>>14) >= (unsigned)D_abs(b) ? ((a^b)>>31) ^ INT_MAX :
-    (fixed_t)(((int_64_t) a << FRACBITS) / b);
-}
+#ifndef GBA
+    return ((unsigned)D_abs(a)>>14) >= (unsigned)D_abs(b) ? ((a^b)>>31) ^ INT_MAX :
+                                                  (fixed_t)(((int_64_t) a << FRACBITS) / b);
+#else
 
-#endif /* I386_ASM */
+    unsigned int udiv64_arm (unsigned int a, unsigned int b, unsigned int c);
+
+    int q;
+    int sign = (a^b) < 0; /* different signs */
+    unsigned int l,h;
+
+    a = a<0 ? -a:a;
+    b = b<0 ? -b:b;
+
+    l = (a << 16);
+    h = (a >> 16);
+
+    q = udiv64_arm (h,l,b);
+    if (sign)
+        q = -q;
+
+    return q;
+#endif
+}
 
 /* CPhipps -
  * FixedMod - returns a % b, guaranteeing 0<=a<b
  * (notice that the C standard for % does not guarantee this)
  */
 
-inline static CONSTFUNC fixed_t FixedMod(fixed_t a, fixed_t b)
+inline static fixed_t CONSTFUNC FixedMod(fixed_t a, fixed_t b)
 {
-  if (b & (b-1)) {
-    fixed_t r = a % b;
-    return ((r<0) ? r+b : r);
-  } else
-    return (a & (b-1));
+    if(!a)
+        return 0;
+
+    if (b & (b-1))
+    {
+        fixed_t r = a % b;
+        return ((r<0) ? r+b : r);
+    }
+    else
+        return (a & (b-1));
 }
+
+//Approx Reciprocal of v
+inline static CONSTFUNC fixed_t FixedReciprocal(fixed_t v)
+{
+    unsigned int val = v < 0 ? -v : v;
+
+    unsigned int shift = 0;
+
+    while(val > (1 << FRACBITS))
+    {
+        val = (val >> 1u);
+        shift++;
+    }
+
+    fixed_t result = (reciprocalTable[val] >> shift);
+
+    return v < 0 ? -result : result;
+}
+
+
+//Approx fixed point divide of a/b using reciprocal. -> a * (1/b).
+inline static CONSTFUNC fixed_t FixedApproxDiv(fixed_t a, fixed_t b)
+{
+    return FixedMul(a, FixedReciprocal(b));
+}
+
+
+
 
 #endif

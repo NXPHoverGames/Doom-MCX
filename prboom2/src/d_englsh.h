@@ -42,12 +42,12 @@
 
 /* m_menu.c */
 #define PRESSKEY    "press a key."
-#define PRESSYN     "press y or n."
+#define PRESSYN     "press A or B."
 #define QUITMSG     "are you sure you want to\nquit this great game?"
 #define LOADNET     "you can't do load while in a net game!\n\n"PRESSKEY
 #define QLOADNET    "you can't quickload during a netgame!\n\n"PRESSKEY
 #define QSAVESPOT   "you haven't picked a quicksave slot yet!\n\n"PRESSKEY
-#define SAVEDEAD    "you can't save if you aren't playing!\n\n"PRESSKEY
+#define SAVEDEAD    "you can't save if\nyou aren't playing!\n\n"PRESSKEY
 #define QSPROMPT    "quicksave over your game named\n\n'%s'?\n\n"PRESSYN
 #define QLPROMPT    "do you want to quickload the game named\n\n'%s'?\n\n"PRESSYN
 
@@ -60,13 +60,21 @@
   "isn't even remotely fair.\n\n"PRESSYN
 
 #define SWSTRING  \
-  "this is the shareware version of doom.\n\n"\
-  "you need to order the entire trilogy.\n\n"PRESSKEY
+  "this is the shareware version\n"\
+  "of doom. You need to order\n"\
+  "the entire trilogy.\n\n"PRESSKEY
 
 #define MSGOFF      "Messages OFF"
 #define MSGON       "Messages ON"
+
+#define RUNOFF      "Take your time."
+#define RUNON       "In a hurry, marine?"
+
+#define HIGHDETAIL  "High Detail."
+#define LOWDETAIL   "Low Detail."
+
 #define NETEND      "you can't end a netgame!\n\n"PRESSKEY
-#define ENDGAME     "are you sure you want to end the game?\n\n"PRESSYN
+#define ENDGAME     "are you sure you want to\nend the game?\n\n"PRESSYN
 #define RESTARTLEVEL "restart the level?\n\n"PRESSYN
 
 #define DOSY        "(press y to quit)"
@@ -74,10 +82,12 @@
 #define DETAILHI    "High detail"
 #define DETAILLO    "Low detail"
 #define GAMMALVL0   "Gamma correction OFF"
-#define GAMMALVL1   "Gamma correction level 1"
-#define GAMMALVL2   "Gamma correction level 2"
-#define GAMMALVL3   "Gamma correction level 3"
-#define GAMMALVL4   "Gamma correction level 4"
+//Unused ~Kippykip
+//#define GAMMALVL1   "Gamma correction level 1"
+//#define GAMMALVL2   "Gamma correction level 2"
+//#define GAMMALVL3   "Gamma correction level 3"
+//#define GAMMALVL4   "Gamma correction level 4"
+#define GAMMALVL4   "Gamma correction ON"
 #define EMPTYSTRING "empty slot"
 
 /* p_inter.c */
@@ -86,8 +96,9 @@
 #define GOTHTHBONUS "Picked up a health bonus."
 #define GOTARMBONUS "Picked up an armor bonus."
 #define GOTSTIM     "Picked up a stimpack."
-#define GOTMEDINEED "Picked up a medikit that you REALLY need!"
 #define GOTMEDIKIT  "Picked up a medikit."
+//#define GOTMEDINEED "Picked up a medikit that you REALLY need!" - String is too long for GBA res
+#define GOTMEDINEED  "Picked up a medikit."
 #define GOTSUPER    "Supercharge!"
 
 #define GOTBLUECARD "Picked up a blue keycard."
@@ -366,172 +377,160 @@
 #define STSTR_COMPON    "Compatibility Mode On"            /* phares */
 #define STSTR_COMPOFF   "Compatibility Mode Off"           /* phares */
 
+#define STSTR_ROCKETON    "Enemy Rockets On"
+#define STSTR_ROCKETOFF   "Enemy Rockets Off"
+
+#define STSTR_FPSON    "FPS Counter On"
+#define STSTR_FPSOFF   "FPS Counter Off"
+
 /* f_finale.c */
 
 #define E1TEXT \
-  "Once you beat the big badasses and\n"\
-  "clean out the moon base you're supposed\n"\
-  "to win, aren't you? Aren't you? Where's\n"\
-  "your fat reward and ticket home? What\n"\
-  "the hell is this? It's not supposed to\n"\
-  "end this way!\n"\
+  "Once you beat the big badasses\n"\
+  "and clean out the moon base\n"\
+  "you're supposed to win?\n"\
+  "Where's your ticket home?\n"\
+  "What the hell is this? It's not\n"\
+  "supposed to end this way!\n"\
   "\n" \
-  "It stinks like rotten meat, but looks\n"\
-  "like the lost Deimos base.  Looks like\n"\
-  "you're stuck on The Shores of Hell.\n"\
-  "The only way out is through.\n"\
-  "\n"\
-  "To continue the DOOM experience, play\n"\
-  "The Shores of Hell and its amazing\n"\
-  "sequel, Inferno!\n"
-
+  "It stinks like rotten meat, but\n"\
+  "looks like the lost Deimos base.\n"\
+  "You're stuck on The Shores of\n"\
+  "Hell.\n"\
+  "The only way out is through."
 
 #define E2TEXT \
-  "You've done it! The hideous cyber-\n"\
-  "demon lord that ruled the lost Deimos\n"\
-  "moon base has been slain and you\n"\
-  "are triumphant! But ... where are\n"\
-  "you? You clamber to the edge of the\n"\
-  "moon and look down to see the awful\n"\
-  "truth.\n" \
+  "You've done it! The hideous\n"\
+  "cyber-demon that ruled the\n"\
+  "lost Deimos moon base has been\n"\
+  "slain and you are triumphant!\n"\
+  "But...where are you?\n"\
+  "You clamber to the edge of the\n"\
+  "moon and see the awful truth.\n" \
   "\n"\
   "Deimos floats above Hell itself!\n"\
-  "You've never heard of anyone escaping\n"\
-  "from Hell, but you'll make the bastards\n"\
-  "sorry they ever heard of you! Quickly,\n"\
-  "you rappel down to  the surface of\n"\
-  "Hell.\n"\
-  "\n" \
-  "Now, it's on to the final chapter of\n"\
-  "DOOM! -- Inferno."
+  "You've never heard of anyone\n"\
+  "escaping from Hell, but you'll\n"\
+  "make the bastards sorry they\n"\
+  "ever heard of you!"
 
 
 #define E3TEXT \
   "The loathsome spiderdemon that\n"\
-  "masterminded the invasion of the moon\n"\
-  "bases and caused so much death has had\n"\
-  "its ass kicked for all time.\n"\
+  "masterminded the invasion of the\n"\
+  "moon bases and caused so much\n"\
+  "death has had its ass kicked.\n"\
   "\n"\
-  "A hidden doorway opens and you enter.\n"\
-  "You've proven too tough for Hell to\n"\
-  "contain, and now Hell at last plays\n"\
-  "fair -- for you emerge from the door\n"\
-  "to see the green fields of Earth!\n"\
-  "Home at last.\n" \
-  "\n"\
-  "You wonder what's been happening on\n"\
-  "Earth while you were battling evil\n"\
-  "unleashed. It's good that no Hell-\n"\
-  "spawn could have come through that\n"\
-  "door with you ..."
-
+  "A hidden doorway opens.\n"\
+  "You've proven too tough for\n"\
+  "Hell to contain, and now Hell at\n"\
+  "last plays fair -- you emerge\n"\
+  "from the door to see the green\n"\
+  "fields of Earth! Home at last.\n"
 
 #define E4TEXT \
-  "the spider mastermind must have sent forth\n"\
-  "its legions of hellspawn before your\n"\
-  "final confrontation with that terrible\n"\
-  "beast from hell.  but you stepped forward\n"\
-  "and brought forth eternal damnation and\n"\
-  "suffering upon the horde as a true hero\n"\
-  "would in the face of something so evil.\n"\
-  "\n"\
-  "besides, someone was gonna pay for what\n"\
-  "happened to daisy, your pet rabbit.\n"\
-  "\n"\
-  "but now, you see spread before you more\n"\
-  "potential pain and gibbitude as a nation\n"\
-  "of demons run amok among our cities.\n"\
-  "\n"\
+  "the spider mastermind must have\n"\
+  "sent forth its legions of\n"\
+  "hellspawn before your final\n"\
+  "confrontation with that\n"\
+  "terrible beast from hell.\n"\
+  "but you stepped forward and\n"\
+  "brought eternal damnation\n"\
+  "and suffering upon the horde as\n"\
+  "a true hero would in the face\n"\
+  "of evil.\n"\
+  "besides, someone is gonna pay for\n"\
+  "what happened to daisy.\n"\
   "next stop, hell on earth!"
 
 
 /* after level 6, put this: */
 
 #define C1TEXT \
-  "YOU HAVE ENTERED DEEPLY INTO THE INFESTED\n" \
-  "STARPORT. BUT SOMETHING IS WRONG. THE\n" \
-  "MONSTERS HAVE BROUGHT THEIR OWN REALITY\n" \
-  "WITH THEM, AND THE STARPORT'S TECHNOLOGY\n" \
-  "IS BEING SUBVERTED BY THEIR PRESENCE.\n" \
-  "\n"\
-  "AHEAD, YOU SEE AN OUTPOST OF HELL, A\n" \
-  "FORTIFIED ZONE. IF YOU CAN GET PAST IT,\n" \
-  "YOU CAN PENETRATE INTO THE HAUNTED HEART\n" \
-  "OF THE STARBASE AND FIND THE CONTROLLING\n" \
-  "SWITCH WHICH HOLDS EARTH'S POPULATION\n" \
+  "YOU HAVE ENTERED DEEPLY INTO\n"\
+  "THE INFESTED STARPORT. SOMETHING\n"\
+  "IS WRONG. THE MONSTERS HAVE\n"\
+  "BROUGHT THEIR OWN REALITY WITH\n"\
+  "THEM, AND THE STARPORT'S TECH\n" \
+  "IS BEING SUBVERTED BY THEM.\n" \
+  "AHEAD, YOU SEE AN OUTPOST OF\n"\
+  "HELL, A FORTIFIED ZONE. IF YOU\n"\
+  "CAN GET PAST YOU CAN PENETRATE\n"\
+  "INTO THE HAUNTED HEART OF THE\n"\
+  "STARBASE AND FIND THE SWITCH\n"\
+  "WHICH HOLDS EARTH'S POPULATION\n"\
   "HOSTAGE."
 
 /* After level 11, put this: */
 
 #define C2TEXT \
-  "YOU HAVE WON! YOUR VICTORY HAS ENABLED\n" \
-  "HUMANKIND TO EVACUATE EARTH AND ESCAPE\n"\
-  "THE NIGHTMARE.  NOW YOU ARE THE ONLY\n"\
-  "HUMAN LEFT ON THE FACE OF THE PLANET.\n"\
-  "CANNIBAL MUTATIONS, CARNIVOROUS ALIENS,\n"\
-  "AND EVIL SPIRITS ARE YOUR ONLY NEIGHBORS.\n"\
-  "YOU SIT BACK AND WAIT FOR DEATH, CONTENT\n"\
-  "THAT YOU HAVE SAVED YOUR SPECIES.\n"\
-  "\n"\
-  "BUT THEN, EARTH CONTROL BEAMS DOWN A\n"\
-  "MESSAGE FROM SPACE: \"SENSORS HAVE LOCATED\n"\
-  "THE SOURCE OF THE ALIEN INVASION. IF YOU\n"\
-  "GO THERE, YOU MAY BE ABLE TO BLOCK THEIR\n"\
-  "ENTRY.  THE ALIEN BASE IS IN THE HEART OF\n"\
-  "YOUR OWN HOME CITY, NOT FAR FROM THE\n"\
-  "STARPORT.\" SLOWLY AND PAINFULLY YOU GET\n"\
-  "UP AND RETURN TO THE FRAY."
+  "YOU HAVE WON! YOUR VICTORY HAS\n"\
+  "ENABLED HUMANKIND TO EVACUATE\n"\
+  "EARTH AND ESCAPE THE NIGHTMARE.\n"\
+  "NOW YOU ARE THE ONLY HUMAN LEFT.\n"\
+  "CANNIBALS, ALIENS AND EVIL\n"\
+  "SPIRITS ARE YOUR NEIGHBORS.\n"\
+  "BUT THEN, EARTH CONTROL BEAMS\n"\
+  "DOWN A MESSAGE: SENSORS HAVE\n"\
+  "LOCATED THE SOURCE OF THE ALIEN\n"\
+  "INVASION. THE ALIEN BASE IS IN\n"\
+  "THE HEART OF YOUR OWN HOME CITY.\n"\
+  "SLOWLY AND PAINFULLY YOU GET UP\n"\
+  "AND RETURN TO THE FRAY."
 
 
 /* After level 20, put this: */
 
 #define C3TEXT \
-  "YOU ARE AT THE CORRUPT HEART OF THE CITY,\n"\
-  "SURROUNDED BY THE CORPSES OF YOUR ENEMIES.\n"\
-  "YOU SEE NO WAY TO DESTROY THE CREATURES'\n"\
-  "ENTRYWAY ON THIS SIDE, SO YOU CLENCH YOUR\n"\
-  "TEETH AND PLUNGE THROUGH IT.\n"\
+  "YOU ARE AT THE CORRUPT HEART OF\n"\
+  "THE CITY, SURROUNDED BY THE\n"\
+  "CORPSES OF YOUR ENEMIES. YOU\n"\
+  "SEE NO WAY TO DESTROY THE\n"\
+  "CREATURES' ENTRYWAY ON THIS SIDE,\n"\
+  "SO YOU CLENCH YOUR TEETH AND\n"\
+  "PLUNGE THROUGH IT.\n"\
   "\n"\
-  "THERE MUST BE A WAY TO CLOSE IT ON THE\n"\
-  "OTHER SIDE. WHAT DO YOU CARE IF YOU'VE\n"\
-  "GOT TO GO THROUGH HELL TO GET TO IT?"
+  "THERE MUST BE A WAY TO CLOSE\n"\
+  "IT ON THE OTHER SIDE. WHAT DO\n"\
+  "YOU CARE IF YOU'VE GOT TO GO\n"\
+  "THROUGH HELL TO GET TO IT?"\
 
 
 /* After level 29, put this: */
 
 #define C4TEXT \
-  "THE HORRENDOUS VISAGE OF THE BIGGEST\n"\
-  "DEMON YOU'VE EVER SEEN CRUMBLES BEFORE\n"\
-  "YOU, AFTER YOU PUMP YOUR ROCKETS INTO\n"\
-  "HIS EXPOSED BRAIN. THE MONSTER SHRIVELS\n"\
-  "UP AND DIES, ITS THRASHING LIMBS\n"\
-  "DEVASTATING UNTOLD MILES OF HELL'S\n"\
-  "SURFACE.\n"\
-  "\n"\
-  "YOU'VE DONE IT. THE INVASION IS OVER.\n"\
-  "EARTH IS SAVED. HELL IS A WRECK. YOU\n"\
-  "WONDER WHERE BAD FOLKS WILL GO WHEN THEY\n"\
-  "DIE, NOW. WIPING THE SWEAT FROM YOUR\n"\
-  "FOREHEAD YOU BEGIN THE LONG TREK BACK\n"\
-  "HOME. REBUILDING EARTH OUGHT TO BE A\n"\
-  "LOT MORE FUN THAN RUINING IT WAS.\n"
+  "THE HORRENDOUS VISAGE OF THE\n"\
+  "BIGGEST DEMON YOU'VE EVER SEEN\n"\
+  "CRUMBLES BEFORE YOU, AFTER YOU\n"\
+  "PUMP ROCKETS INTO HIS EXPOSED\n"\
+  "BRAIN. THE MONSTERS THRASHING\n"\
+  "LIMBS DEVASTATING UNTOLD MILES\n"\
+  "OF HELL'S SURFACE.\n"\
+  "YOU'VE DONE IT. THE INVASION IS\n"\
+  "OVER. HELL IS A WRECK.\n"\
+  "YOU BEGIN THE LONG TREK BACK\n"\
+  "HOME. REBUILDING EARTH WILL\n"\
+  "BE A LOT LESS FUN THAN\n"\
+  "RUINING IT WAS."
 
 /* Before level 31, put this: */
 
 #define C5TEXT \
-  "CONGRATULATIONS, YOU'VE FOUND THE SECRET\n"\
-  "LEVEL! LOOKS LIKE IT'S BEEN BUILT BY\n"\
-  "HUMANS, RATHER THAN DEMONS. YOU WONDER\n"\
-  "WHO THE INMATES OF THIS CORNER OF HELL\n"\
-  "WILL BE."
+  "CONGRATULATIONS, YOU'VE FOUND\n"\
+  "THE SECRET LEVEL! LOOKS LIKE\n"\
+  "IT'S BEEN BUILT BY HUMANS,\n"\
+  "RATHER THAN DEMONS. YOU WONDER\n"\
+  "WHO THE INMATES OF THIS CORNER\n"\
+  "OF HELL WILL BE."
 
 
 /* Before level 32, put this: */
 
 #define C6TEXT \
-  "CONGRATULATIONS, YOU'VE FOUND THE\n"\
-  "SUPER SECRET LEVEL!  YOU'D BETTER\n"\
-  "BLAZE THROUGH THIS ONE!\n"
+  "CONGRATULATIONS, YOU'VE FOUND\n"\
+  "THE SUPER SECRET LEVEL!\n"\
+  "YOU'D BETTER BLAZE THROUGH\n"\
+  "THIS ONE!"
 
 /*** Plutonia ***/
 /* after map 06 */

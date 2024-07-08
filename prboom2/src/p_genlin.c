@@ -40,6 +40,8 @@
 #include "s_sound.h"
 #include "sounds.h"
 
+#include "global_data.h"
+
 //////////////////////////////////////////////////////////
 //
 // Generalized Linedef Type handlers
@@ -58,14 +60,14 @@
 // floor movers using bit fields in the line special type.
 //
 int EV_DoGenFloor
-( line_t*       line )
+( const line_t*       line )
 {
   int                   secnum;
   int                   rtn;
   boolean               manual;
   sector_t*             sec;
   floormove_t*          floor;
-  unsigned              value = (unsigned)line->special - GenFloorBase;
+  unsigned              value = (unsigned)LN_SPECIAL(line) - GenFloorBase;
 
   // parse the bit fields in the line's special type
 
@@ -83,9 +85,9 @@ int EV_DoGenFloor
   manual = false;
   if (Trig==PushOnce || Trig==PushMany)
   {
-    if (!(sec = line->backsector))
+    if (!(sec = LN_BACKSECTOR(line)))
       return rtn;
-    secnum = sec-sectors;
+    secnum = sec-_g->sectors;
     manual = true;
     goto manual_floor;
   }
@@ -94,7 +96,7 @@ int EV_DoGenFloor
   // if not manual do all sectors tagged the same as the line
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
 
 manual_floor:
     // Do not start another function if floor already moving
@@ -221,7 +223,7 @@ manual_floor:
       }
       else     // else if a trigger model change
       {
-        floor->texture = line->frontsector->floorpic;
+        floor->texture = LN_FRONTSECTOR(line)->floorpic;
         switch (ChgT)
         {
           case FChgZero:    // zero type
@@ -231,9 +233,9 @@ manual_floor:
             floor->type = genFloorChg0;
             break;
           case FChgTyp:     // copy type
-            floor->newspecial = line->frontsector->special;
+            floor->newspecial = LN_FRONTSECTOR(line)->special;
             //jff 3/14/98 change old field too
-            floor->oldspecial = line->frontsector->oldspecial;
+            floor->oldspecial = LN_FRONTSECTOR(line)->oldspecial;
             floor->type = genFloorChgT;
             break;
           case FChgTxt:     // leave type be
@@ -261,7 +263,7 @@ manual_floor:
 // floor movers using bit fields in the line special type.
 //
 int EV_DoGenCeiling
-( line_t*       line )
+( const line_t*       line )
 {
   int                   secnum;
   int                   rtn;
@@ -269,7 +271,7 @@ int EV_DoGenCeiling
   fixed_t               targheight;
   sector_t*             sec;
   ceiling_t*            ceiling;
-  unsigned              value = (unsigned)line->special - GenCeilingBase;
+  unsigned              value = (unsigned)LN_SPECIAL(line) - GenCeilingBase;
 
   // parse the bit fields in the line's special type
 
@@ -287,9 +289,9 @@ int EV_DoGenCeiling
   manual = false;
   if (Trig==PushOnce || Trig==PushMany)
   {
-    if (!(sec = line->backsector))
+    if (!(sec = LN_BACKSECTOR(line)))
       return rtn;
-    secnum = sec-sectors;
+    secnum = sec-_g->sectors;
     manual = true;
     goto manual_ceiling;
   }
@@ -298,7 +300,7 @@ int EV_DoGenCeiling
   // if not manual do all sectors tagged the same as the line
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
 
 manual_ceiling:
     // Do not start another function if ceiling already moving
@@ -429,7 +431,7 @@ manual_ceiling:
       }
       else        // else if a trigger model change
       {
-        ceiling->texture = line->frontsector->ceilingpic;
+        ceiling->texture = LN_FRONTSECTOR(line)->ceilingpic;
         switch (ChgT)
         {
           case CChgZero:    // type is zeroed
@@ -439,9 +441,9 @@ manual_ceiling:
             ceiling->type = genCeilingChg0;
             break;
           case CChgTyp:     // type is copied
-            ceiling->newspecial = line->frontsector->special;
+            ceiling->newspecial = LN_FRONTSECTOR(line)->special;
             //jff 3/14/98 change old field too
-            ceiling->oldspecial = line->frontsector->oldspecial;
+            ceiling->oldspecial = LN_FRONTSECTOR(line)->oldspecial;
             ceiling->type = genCeilingChgT;
             break;
           case CChgTxt:     // type is left alone
@@ -467,14 +469,14 @@ manual_ceiling:
 // Returns true if a thinker is created
 //
 int EV_DoGenLift
-( line_t*       line )
+( const line_t*       line )
 {
   plat_t*         plat;
   int             secnum;
   int             rtn;
   boolean         manual;
   sector_t*       sec;
-  unsigned        value = (unsigned)line->special - GenLiftBase;
+  unsigned        value = (unsigned)LN_SPECIAL(line) - GenLiftBase;
 
   // parse the bit fields in the line's special type
 
@@ -495,9 +497,9 @@ int EV_DoGenLift
   manual = false;
   if (Trig==PushOnce || Trig==PushMany)
   {
-    if (!(sec = line->backsector))
+    if (!(sec = LN_BACKSECTOR(line)))
       return rtn;
-    secnum = sec-sectors;
+    secnum = sec-_g->sectors;
     manual = true;
     goto manual_lift;
   }
@@ -505,7 +507,7 @@ int EV_DoGenLift
   // if not manual do all sectors tagged the same as the line
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
 
 manual_lift:
     // Do not start another function if floor already moving
@@ -557,7 +559,7 @@ manual_lift:
         plat->high = P_FindHighestFloorSurrounding(sec);
         if (plat->high < sec->floorheight)
           plat->high = sec->floorheight;
-        plat->status = P_Random(pr_genlift)&1;
+        plat->status = P_Random()&1;
         break;
       default:
         break;
@@ -599,7 +601,7 @@ manual_lift:
         break;
     }
 
-    S_StartSound((mobj_t *)&sec->soundorg,sfx_pstart);
+    S_StartSound2(&sec->soundorg,sfx_pstart);
     P_AddActivePlat(plat); // add this plat to the list of active plats
 
     if (manual)
@@ -617,7 +619,7 @@ manual_lift:
 // Returns true if a thinker is created
 //
 int EV_DoGenStairs
-( line_t*       line )
+( const line_t*       line )
 {
   int                   secnum;
   int                   osecnum; //jff 3/4/98 preserve loop index
@@ -637,7 +639,7 @@ int EV_DoGenStairs
   fixed_t               stairsize;
   fixed_t               speed;
 
-  unsigned              value = (unsigned)line->special - GenStairsBase;
+  unsigned              value = (unsigned)LN_SPECIAL(line) - GenStairsBase;
 
   // parse the bit fields in the line's special type
 
@@ -653,9 +655,9 @@ int EV_DoGenStairs
   manual = false;
   if (Trig==PushOnce || Trig==PushMany)
   {
-    if (!(sec = line->backsector))
+    if (!(sec = LN_BACKSECTOR(line)))
       return rtn;
-    secnum = sec-sectors;
+    secnum = sec-_g->sectors;
     manual = true;
     goto manual_stair;
   }
@@ -664,13 +666,13 @@ int EV_DoGenStairs
   // if not manual do all sectors tagged the same as the line
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
 
 manual_stair:
     //Do not start another function if floor already moving
     //jff 2/26/98 add special lockout condition to wait for entire
     //staircase to build before retriggering
-    if (P_SectorActive(floor_special,sec) || sec->stairlock)
+    if (P_SectorActive(floor_special,sec))
     {
       if (!manual)
         continue;
@@ -731,10 +733,6 @@ manual_stair:
     floor->crush = false;
     floor->type = genBuildStair; // jff 3/31/98 do not leave uninited
 
-    sec->stairlock = -2;         // jff 2/26/98 set up lock on current sector
-    sec->nextsec = -1;
-    sec->prevsec = -1;
-
     osecnum = secnum;            //jff 3/4/98 preserve loop index
     // Find next sector to raise
     // 1.     Find 2-sided line with same sector side[0]
@@ -744,40 +742,29 @@ manual_stair:
       ok = 0;
       for (i = 0;i < sec->linecount;i++)
       {
-        if ( !((sec->lines[i])->backsector) )
+
+
+        if ( !LN_BACKSECTOR((sec->lines[i])) )
           continue;
 
-        tsec = (sec->lines[i])->frontsector;
-        newsecnum = tsec-sectors;
+        tsec = LN_FRONTSECTOR((sec->lines[i]));
+        newsecnum = tsec-_g->sectors;
 
         if (secnum != newsecnum)
           continue;
 
-        tsec = (sec->lines[i])->backsector;
-        newsecnum = tsec - sectors;
+        tsec = LN_BACKSECTOR((sec->lines[i]));
+        newsecnum = tsec - _g->sectors;
 
         if (!Igno && tsec->floorpic != texture)
           continue;
 
-        /* jff 6/19/98 prevent double stepsize */
-        if (compatibility_level < boom_202_compatibility)
-          height += floor->direction * stairsize;
 
         //jff 2/26/98 special lockout condition for retriggering
-        if (P_SectorActive(floor_special,tsec) || tsec->stairlock)
+        if (P_SectorActive(floor_special,tsec))
           continue;
 
-        /* jff 6/19/98 increase height AFTER continue */
-        if (compatibility_level >= boom_202_compatibility)
-          height += floor->direction * stairsize;
-
-        // jff 2/26/98
-        // link the stair chain in both directions
-        // lock the stair sector until building complete
-        sec->nextsec = newsecnum; // link step to next
-        tsec->prevsec = secnum;   // link next back
-        tsec->nextsec = -1;       // set next forward link as end
-        tsec->stairlock = -2;     // lock the step
+        height += floor->direction * stairsize;
 
         sec = tsec;
         secnum = newsecnum;
@@ -805,7 +792,7 @@ manual_stair:
   }
   // retriggerable generalized stairs build up or down alternately
   if (rtn)
-    line->special ^= StairDirection; // alternate dir on succ activations
+    LN_SPECIAL(line) ^= StairDirection; // alternate dir on succ activations
   return rtn;
 }
 
@@ -818,14 +805,14 @@ manual_stair:
 // Returns true if a thinker created
 //
 int EV_DoGenCrusher
-( line_t*       line )
+( const line_t*       line )
 {
   int                   secnum;
   int                   rtn;
   boolean               manual;
   sector_t*             sec;
   ceiling_t*            ceiling;
-  unsigned              value = (unsigned)line->special - GenCrusherBase;
+  unsigned              value = (unsigned)LN_SPECIAL(line) - GenCrusherBase;
 
   // parse the bit fields in the line's special type
 
@@ -841,9 +828,9 @@ int EV_DoGenCrusher
   manual = false;
   if (Trig==PushOnce || Trig==PushMany)
   {
-    if (!(sec = line->backsector))
+    if (!(sec = LN_BACKSECTOR(line)))
       return rtn;
-    secnum = sec-sectors;
+    secnum = sec-_g->sectors;
     manual = true;
     goto manual_crusher;
   }
@@ -852,7 +839,7 @@ int EV_DoGenCrusher
   // if not manual do all sectors tagged the same as the line
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
 
 manual_crusher:
     // Do not start another function if ceiling already moving
@@ -916,13 +903,13 @@ manual_crusher:
 // Returns true if a thinker created
 //
 int EV_DoGenLockedDoor
-( line_t* line )
+( const line_t* line )
 {
   int   secnum,rtn;
   sector_t* sec;
   vldoor_t* door;
   boolean manual;
-  unsigned  value = (unsigned)line->special - GenLockedBase;
+  unsigned  value = (unsigned)LN_SPECIAL(line) - GenLockedBase;
 
   // parse the bit fields in the line's special type
 
@@ -936,9 +923,9 @@ int EV_DoGenLockedDoor
   manual = false;
   if (Trig==PushOnce || Trig==PushMany)
   {
-    if (!(sec = line->backsector))
+    if (!(sec = LN_BACKSECTOR(line)))
       return rtn;
-    secnum = sec-sectors;
+    secnum = sec-_g->sectors;
     manual = true;
     goto manual_locked;
   }
@@ -949,7 +936,7 @@ int EV_DoGenLockedDoor
   // if not manual do all sectors tagged the same as the line
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
 manual_locked:
     // Do not start another function if ceiling already moving
     if (P_SectorActive(ceiling_special,sec)) //jff 2/22/98
@@ -976,9 +963,8 @@ manual_locked:
     door->direction = 1;
 
     /* killough 10/98: implement gradual lighting */
-    door->lighttag = !comp[comp_doorlight] &&
-      (line->special&6) == 6 &&
-      line->special > GenLockedBase ? line->tag : 0;
+    door->lighttag = (LN_SPECIAL(line)&6) == 6 &&
+      LN_SPECIAL(line) > GenLockedBase ? line->tag : 0;
 
     // setup speed of door motion
     switch(Sped)
@@ -1006,7 +992,7 @@ manual_locked:
     // killough 4/15/98: fix generalized door opening sounds
     // (previously they always had the blazing door close sound)
 
-    S_StartSound((mobj_t *)&door->sector->soundorg,   // killough 4/15/98
+    S_StartSound2(&door->sector->soundorg,   // killough 4/15/98
                  door->speed >= VDOORSPEED*4 ? sfx_bdopn : sfx_doropn);
 
     if (manual)
@@ -1024,13 +1010,13 @@ manual_locked:
 // Returns true if a thinker created
 //
 int EV_DoGenDoor
-( line_t* line )
+( const line_t* line )
 {
   int   secnum,rtn;
   sector_t* sec;
   boolean   manual;
   vldoor_t* door;
-  unsigned  value = (unsigned)line->special - GenDoorBase;
+  unsigned  value = (unsigned)LN_SPECIAL(line) - GenDoorBase;
 
   // parse the bit fields in the line's special type
 
@@ -1045,9 +1031,9 @@ int EV_DoGenDoor
   manual = false;
   if (Trig==PushOnce || Trig==PushMany)
   {
-    if (!(sec = line->backsector))
+    if (!(sec = LN_BACKSECTOR(line)))
       return rtn;
-    secnum = sec-sectors;
+    secnum = sec-_g->sectors;
     manual = true;
     goto manual_door;
   }
@@ -1059,7 +1045,7 @@ int EV_DoGenDoor
   // if not manual do all sectors tagged the same as the line
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
 manual_door:
     // Do not start another function if ceiling already moving
     if (P_SectorActive(ceiling_special,sec)) //jff 2/22/98
@@ -1117,9 +1103,8 @@ manual_door:
     door->line = line; // jff 1/31/98 remember line that triggered us
 
     /* killough 10/98: implement gradual lighting */
-    door->lighttag = !comp[comp_doorlight] &&
-      (line->special&6) == 6 &&
-      line->special > GenLockedBase ? line->tag : 0;
+    door->lighttag = (LN_SPECIAL(line)&6) == 6 &&
+      LN_SPECIAL(line) > GenLockedBase ? line->tag : 0;
 
     // set kind of door, whether it opens then close, opens, closes etc.
     // assign target heights accordingly
@@ -1130,7 +1115,7 @@ manual_door:
         door->topheight = P_FindLowestCeilingSurrounding(sec);
         door->topheight -= 4*FRACUNIT;
         if (door->topheight != sec->ceilingheight)
-          S_StartSound((mobj_t *)&door->sector->soundorg,Sped>=SpeedFast || comp[comp_sound] ? sfx_bdopn : sfx_doropn);
+          S_StartSound2(&door->sector->soundorg,Sped>=SpeedFast ? sfx_bdopn : sfx_doropn);
         door->type = Sped>=SpeedFast? genBlazeRaise : genRaise;
         break;
       case ODoor:
@@ -1138,20 +1123,20 @@ manual_door:
         door->topheight = P_FindLowestCeilingSurrounding(sec);
         door->topheight -= 4*FRACUNIT;
         if (door->topheight != sec->ceilingheight)
-          S_StartSound((mobj_t *)&door->sector->soundorg,Sped>=SpeedFast || comp[comp_sound] ? sfx_bdopn : sfx_doropn);
+          S_StartSound2(&door->sector->soundorg,Sped>=SpeedFast ? sfx_bdopn : sfx_doropn);
         door->type = Sped>=SpeedFast? genBlazeOpen : genOpen;
         break;
       case CdODoor:
         door->topheight = sec->ceilingheight;
         door->direction = -1;
-        S_StartSound((mobj_t *)&door->sector->soundorg,Sped>=SpeedFast && !comp[comp_sound] ? sfx_bdcls : sfx_dorcls);
+        S_StartSound2(&door->sector->soundorg,Sped>=SpeedFast ? sfx_bdcls : sfx_dorcls);
         door->type = Sped>=SpeedFast? genBlazeCdO : genCdO;
         break;
       case CDoor:
         door->topheight = P_FindLowestCeilingSurrounding(sec);
         door->topheight -= 4*FRACUNIT;
         door->direction = -1;
-        S_StartSound((mobj_t *)&door->sector->soundorg,Sped>=SpeedFast && !comp[comp_sound] ? sfx_bdcls : sfx_dorcls);
+        S_StartSound2(&door->sector->soundorg,Sped>=SpeedFast ? sfx_bdcls : sfx_dorcls);
         door->type = Sped>=SpeedFast? genBlazeClose : genClose;
         break;
       default:

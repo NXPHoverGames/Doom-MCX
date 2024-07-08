@@ -74,20 +74,32 @@ typedef unsigned angle_t;
 void R_LoadTrigTables(void);
 
 // Effective size is 10240.
-extern fixed_t finesine[5*FINEANGLES/4];
+extern const fixed_t finesine[10240];
 
 // Re-use data, is just PI/2 phase shift.
-static fixed_t *const finecosine = finesine + (FINEANGLES/4);
+static const fixed_t *const finecosine = finesine + (FINEANGLES/4);
 
 // Effective size is 4096.
-extern fixed_t finetangent[FINEANGLES/2];
+extern const fixed_t finetangent[4096];
 
 // Effective size is 2049;
 // The +1 size is to handle the case when x==y without additional checking.
 
-extern angle_t tantoangle[SLOPERANGE+1];
+extern const angle_t tantoangle[2049];
 
-// Utility function, called by R_PointToAngle.
-int SlopeDiv(unsigned num, unsigned den);
+extern const int viewangletox[4096];
+
+extern const angle_t xtoviewangle[121];
+extern const angle_t* xtoviewangle_vram; //VRAM Copy.
+
+
+extern const fixed_t yslope[160];
+extern const fixed_t* yslope_vram; //VRAM Copy.
+
+extern const fixed_t distscale[120];
+extern const fixed_t* distscale_vram; //VRAM Copy.
+
+extern short* screenheightarray;
+extern short* negonearray;
 
 #endif

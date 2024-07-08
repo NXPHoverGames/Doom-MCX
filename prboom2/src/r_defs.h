@@ -59,7 +59,11 @@
 #define SIL_TOP     2
 #define SIL_BOTH    3
 
-#define MAXDRAWSEGS   256
+#define MAXDRAWSEGS   192
+
+#define MAXOPENINGS (SCREENWIDTH*16)
+
+#define MAXVISSPRITES 96
 
 //
 // INTERNAL MAP TYPES
@@ -79,8 +83,8 @@ typedef struct
 // Each sector has a degenmobj_t in its center for sound origin purposes.
 typedef struct
 {
-  thinker_t thinker;  // not used for anything
-  fixed_t x, y, z;
+  fixed_t x;
+  fixed_t y;
 } degenmobj_t;
 
 //
@@ -90,69 +94,37 @@ typedef struct
 
 typedef struct
 {
-  int iSectorID; // proff 04/05/2000: needed for OpenGL and used in debugmode by the HUD to draw sectornum
-  boolean no_toptextures;
-  boolean no_bottomtextures;
   fixed_t floorheight;
   fixed_t ceilingheight;
-  int nexttag,firsttag;  // killough 1/30/98: improves searches for tags.
-  int soundtraversed;    // 0 = untraversed, 1,2 = sndlines-1
+
   mobj_t *soundtarget;   // thing that made a sound (or null)
-  int blockbox[4];       // mapblock bounding box for height changes
   degenmobj_t soundorg;  // origin for any sounds played by the sector
   int validcount;        // if == validcount, already checked
   mobj_t *thinglist;     // list of mobjs in sector
 
-  /* killough 8/28/98: friction is a sector property, not an mobj property.
-   * these fields used to be in mobj_t, but presented performance problems
-   * when processed as mobj properties. Fix is to make them sector properties.
-   */
-  int friction,movefactor;
 
   // thinker_t for reversable actions
   void *floordata;    // jff 2/22/98 make thinkers on
   void *ceilingdata;  // floors, ceilings, lighting,
-  void *lightingdata; // independent of one another
-
-  // jff 2/26/98 lockout machinery for stairbuilding
-  int stairlock;   // -2 on first locked -1 after thinker done 0 normally
-  int prevsec;     // -1 or number of sector for previous step
-  int nextsec;     // -1 or number of next step sector
-
-  // killough 3/7/98: support flat heights drawn at another sector's heights
-  int heightsec;    // other sector, or -1 if no other sector
-
-  int bottommap, midmap, topmap; // killough 4/4/98: dynamic colormaps
 
   // list of mobjs that are at least partially in the sector
   // thinglist is a subset of touching_thinglist
   struct msecnode_s *touching_thinglist;               // phares 3/14/98
 
-  int linecount;
-  struct line_s **lines;
+  const struct line_s **lines;
 
-  // killough 10/98: support skies coming from sidedefs. Allows scrolling
-  // skies and other effects. No "level info" kind of lump is needed,
-  // because you can use an arbitrary number of skies per level with this
-  // method. This field only applies when skyflatnum is used for floorpic
-  // or ceilingpic, because the rest of Doom needs to know which is sky
-  // and which isn't, etc.
-
-  int sky;
-
-  // killough 3/7/98: floor and ceiling texture offsets
-  fixed_t   floor_xoffs,   floor_yoffs;
-  fixed_t ceiling_xoffs, ceiling_yoffs;
-
-  // killough 4/11/98: support for lightlevels coming from another sector
-  int floorlightsec, ceilinglightsec;
+  short linecount;
 
   short floorpic;
   short ceilingpic;
+
   short lightlevel;
   short special;
   short oldspecial;      //jff 2/16/98 remembers if sector WAS secret (automap)
   short tag;
+
+  short soundtraversed;    // 0 = untraversed, 1,2 = sndlines-1
+
 } sector_t;
 
 //
@@ -161,19 +133,14 @@ typedef struct
 
 typedef struct
 {
-  fixed_t textureoffset; // add this to the calculated texture column
-  fixed_t rowoffset;     // add this to the calculated texture top
-  short toptexture;      // Texture indices. We do not maintain names here.
-  short bottomtexture;
-  short midtexture;
-  sector_t* sector;      // Sector the SideDef is facing.
+    sector_t* sector;      // Sector the SideDef is facing.
 
-  // killough 4/4/98, 4/11/98: highest referencing special linedef's type,
-  // or lump number of special effect. Allows texture names to be overloaded
-  // for other functions.
+    short textureoffset; // add this to the calculated texture column
+    short rowoffset;     // add this to the calculated texture top
 
-  int special;
-
+    unsigned int toptexture:10;
+    unsigned int bottomtexture:10;
+    unsigned int midtexture:10;
 } side_t;
 
 //
@@ -187,33 +154,51 @@ typedef enum
   ST_NEGATIVE
 } slopetype_t;
 
-typedef struct line_s
-{
-  int iLineID;           // proff 04/05/2000: needed for OpenGL
-  vertex_t *v1, *v2;     // Vertices, from v1 to v2.
-  fixed_t dx, dy;        // Precalculated v2 - v1 for side checking.
-  unsigned short flags;           // Animation related.
-  short special;
-  short tag;
-  unsigned short sidenum[2];        // Visual appearance: SideDefs.
-  fixed_t bbox[4];       // A bounding box, for the linedef's extent
-  slopetype_t slopetype; // To aid move clipping.
-  sector_t *frontsector; // Front and back sector.
-  sector_t *backsector;
-  int validcount;        // if == validcount, already checked
-  void *specialdata;     // thinker_t for reversable actions
-  int tranlump;          // killough 4/11/98: translucency filter, -1 == none
-  int firsttag,nexttag;  // killough 4/17/98: improves searches for tags.
-  int r_validcount;      // cph: if == gametic, r_flags already done
-  enum {                 // cph:
+typedef enum
+{                 // cph:
     RF_TOP_TILE  = 1,     // Upper texture needs tiling
     RF_MID_TILE = 2,     // Mid texture needs tiling
     RF_BOT_TILE = 4,     // Lower texture needs tiling
     RF_IGNORE   = 8,     // Renderer can skip this line
     RF_CLOSED   =16,     // Line blocks view
-  } r_flags;
-  degenmobj_t soundorg;  // sound origin for switches/buttons
+    RF_MAPPED   =32      // Seen so show on automap.
+} r_flags;
+
+//Runtime mutable data for lines.
+typedef struct linedata_s
+{
+    unsigned short validcount;        // if == validcount, already checked
+    unsigned short r_validcount;      // cph: if == gametic, r_flags already done
+
+    short special;
+    short r_flags;
+} linedata_t;
+
+typedef struct line_s
+{
+    vertex_t v1;
+    vertex_t v2;     // Vertices, from v1 to v2.
+    unsigned int lineno;         //line number.
+
+    fixed_t dx, dy;        // Precalculated v2 - v1 for side checking.
+
+    unsigned short sidenum[2];        // Visual appearance: SideDefs.
+    fixed_t bbox[4];        //Line bounding box.
+
+    unsigned short flags;           // Animation related.
+    short const_special;
+    short tag;
+    short slopetype; // To aid move clipping.
+
 } line_t;
+
+#define LN_FRONTSECTOR(l) (_g->sides[(l)->sidenum[0]].sector)
+#define LN_BACKSECTOR(l) ((l)->sidenum[1] != NO_INDEX ? _g->sides[(l)->sidenum[1]].sector : NULL)
+
+#define LN_SPECIAL(l) (_g->linedata[(l)->lineno].special)
+#define LN_VCOUNT(l) (_g->linedata[(l)->lineno].validcount)
+#define LN_RVCOUNT(l) (_g->linedata[(l)->lineno].r_validcount)
+#define LN_RFLAGS(l) (_g->linedata[(l)->lineno].r_flags)
 
 
 // phares 3/14/98
@@ -246,19 +231,15 @@ typedef struct msecnode_s
 //
 // The LineSeg.
 //
+
+/*
 typedef struct
 {
   vertex_t *v1, *v2;
   fixed_t offset;
   angle_t angle;
   side_t* sidedef;
-  line_t* linedef;
-
-  int iSegID; // proff 11/05/2000: needed for OpenGL
-  // figgi -- needed for glnodes
-  float     length;
-  boolean   miniseg;
-
+  const line_t* linedef;
 
   // Sector references.
   // Could be retrieved from linedef, too
@@ -267,7 +248,28 @@ typedef struct
 
   sector_t *frontsector, *backsector;
 } seg_t;
+*/
 
+//
+// The LineSeg.
+//
+typedef struct
+{
+    vertex_t v1;
+    vertex_t v2;            // Vertices, from v1 to v2.
+
+    fixed_t offset;
+    angle_t angle;
+
+    unsigned short sidenum;
+    unsigned short linenum;
+
+    unsigned short frontsectornum;
+    unsigned short backsectornum;
+} seg_t;
+
+#define SG_FRONTSECTOR(s) ((s)->frontsectornum != NO_INDEX ? &_g->sectors[(s)->frontsectornum] : NULL)
+#define SG_BACKSECTOR(s) ((s)->backsectornum != NO_INDEX ? &_g->sectors[(s)->backsectornum] : NULL)
 
 //
 // A SubSector.
@@ -282,17 +284,6 @@ typedef struct subsector_s
   sector_t *sector;
   unsigned short numlines, firstline;
 } subsector_t;
-
-
-//
-// BSP node.
-//
-typedef struct
-{
-  fixed_t  x,  y, dx, dy;        // Partition line.
-  fixed_t bbox[2][4];            // Bounding box for each child.
-  unsigned short children[2];    // If NF_SUBSECTOR its a subsector.
-} node_t;
 
 //
 // OTHER TYPES
@@ -312,29 +303,45 @@ typedef byte  lighttable_t;
 
 typedef struct drawseg_s
 {
-  seg_t *curline;
-  int x1, x2;
+  const seg_t *curline;
+  short x1, x2;
   fixed_t scale1, scale2, scalestep;
   int silhouette;                       // 0=none, 1=bottom, 2=top, 3=both
   fixed_t bsilheight;                   // do not clip sprites above this
   fixed_t tsilheight;                   // do not clip sprites below this
 
-  // Added for filtering (fractional texture u coord) support - POPE
-  fixed_t rw_offset, rw_distance, rw_centerangle; 
-  
   // Pointers to lists for sprite clipping,
   // all three adjusted so [x1] is first value.
 
-  int *sprtopclip, *sprbottomclip, *maskedtexturecol; // dropoff overflow
+  short *sprtopclip, *sprbottomclip;
+  short *maskedtexturecol; // dropoff overflow
 } drawseg_t;
 
-// proff: Added for OpenGL
+// Patches.
+// A patch holds one or more columns.
+// Patches are used for sprites and all masked pictures,
+// and we compose textures from the TEXTURE1/2 lists
+// of patches.
 typedef struct
 {
-  int width,height;
-  int leftoffset,topoffset;
-  int lumpnum;
-} patchnum_t;
+    short		width;		// bounding box size
+    short		height;
+    short		leftoffset;	// pixels to the left of origin
+    short		topoffset;	// pixels below the origin
+    int			columnofs[8];	// only [width] used
+    // the [0] is &columnofs[width]
+} patch_t;
+
+
+// posts are runs of non masked source pixels
+typedef struct
+{
+    byte		topdelta;	// -1 is the last post in a column
+    byte		length; 	// length data bytes follows
+} post_t;
+
+// column_t is a list of 0 or more post_t, (byte)-1 terminated
+typedef post_t	column_t;
 
 //
 // A vissprite_t is a thing that will be drawn during a refresh.
@@ -343,25 +350,22 @@ typedef struct
 
 typedef struct vissprite_s
 {
-  mobj_t *thing;
-  boolean flip;
-  int x1, x2;
+  short x1, x2;
   fixed_t gx, gy;              // for line side calculation
-  fixed_t gz, gzt;             // global bottom / top for silhouette clipping
+  fixed_t gz;                   // global bottom for silhouette clipping
   fixed_t startfrac;           // horizontal position of x1
   fixed_t scale;
   fixed_t xiscale;             // negative if flipped
   fixed_t texturemid;
-  int patch;
-  uint_64_t mobjflags;
+  fixed_t iscale;
+
+  const patch_t* patch;
+
+  unsigned int mobjflags;
 
   // for color translation and shadow draw, maxbright frames as well
   const lighttable_t *colormap;
 
-  // killough 3/27/98: height sector for underwater/fake ceiling support
-  int heightsec;
-
-  boolean isplayersprite;
 } vissprite_t;
 
 //
@@ -382,18 +386,21 @@ typedef struct vissprite_s
 
 typedef struct
 {
+  // Lump to use for view angles 0-7.
+  short lump[8];
+
+  // Flip bit (1 = flip) to use for view angles 0-7.
+  //byte  flip[8];
+  byte flipmask;
+
   // If false use 0 for any position.
   // Note: as eight entries are available,
   //  we might as well insert the same name eight times.
   boolean rotate;
 
-  // Lump to use for view angles 0-7.
-  short lump[8];
-
-  // Flip bit (1 = flip) to use for view angles 0-7.
-  byte  flip[8];
-
 } spriteframe_t;
+
+#define SPR_FLIPPED(s, r) (s->flipmask & (1 << r))
 
 //
 // A sprite definition:
@@ -415,14 +422,23 @@ typedef struct
 typedef struct visplane
 {
   struct visplane *next;        // Next visplane in hash chain -- killough
-  int picnum, lightlevel, minx, maxx;
+  short picnum, lightlevel;
+  short minx, maxx;
   fixed_t height;
-  fixed_t xoffs, yoffs;         // killough 2/28/98: Support scrolling flats
-  unsigned int pad1;          // leave pads for [minx-1]/[maxx+1]
-  unsigned int top[MAX_SCREENWIDTH];
-  unsigned int pad2, pad3;    // killough 2/8/98, 4/25/98
-  unsigned int bottom[MAX_SCREENWIDTH];
-  unsigned int pad4; // dropoff overflow
+  boolean modified;
+
+  byte		pad1;
+  byte		pad2;
+  byte		pad3;
+  // Here lies the rub for all
+  //  dynamic resize/change of resolution.
+  byte		top[SCREENWIDTH];
+  byte		pad4;
+  byte		pad5;
+  // See above.
+  byte		bottom[SCREENWIDTH];
+  byte		pad6;
+
 } visplane_t;
 
 #endif

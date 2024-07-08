@@ -49,7 +49,9 @@
 #include "m_bbox.h"
 #include "lprintf.h"
 
-static mobj_t *current_actor;
+#include "global_data.h"
+
+const int distfriend = 128;
 
 typedef enum {
   DI_EAST,
@@ -88,27 +90,27 @@ static void P_RecursiveSound(sector_t *sec, int soundblocks,
   int i;
 
   // wake up all monsters in this sector
-  if (sec->validcount == validcount && sec->soundtraversed <= soundblocks+1)
+  if (sec->validcount == _g->validcount && sec->soundtraversed <= soundblocks+1)
     return;             // already flooded
 
-  sec->validcount = validcount;
+  sec->validcount = _g->validcount;
   sec->soundtraversed = soundblocks+1;
   P_SetTarget(&sec->soundtarget, soundtarget);
 
   for (i=0; i<sec->linecount; i++)
     {
       sector_t *other;
-      line_t *check = sec->lines[i];
+      const line_t *check = sec->lines[i];
 
       if (!(check->flags & ML_TWOSIDED))
         continue;
 
       P_LineOpening(check);
 
-      if (openrange <= 0)
+      if (_g->openrange <= 0)
         continue;       // closed door
 
-      other=sides[check->sidenum[sides[check->sidenum[0]].sector==sec]].sector;
+      other=_g->sides[check->sidenum[_g->sides[check->sidenum[0]].sector==sec]].sector;
 
       if (!(check->flags & ML_SOUNDBLOCK))
         P_RecursiveSound(other, soundblocks, soundtarget);
@@ -125,7 +127,7 @@ static void P_RecursiveSound(sector_t *sec, int soundblocks,
 //
 void P_NoiseAlert(mobj_t *target, mobj_t *emitter)
 {
-  validcount++;
+  _g->validcount++;
   P_RecursiveSound(emitter->subsector->sector, 0, target);
 }
 
@@ -140,7 +142,7 @@ static boolean P_CheckMeleeRange(mobj_t *actor)
   return  // killough 7/18/98: friendly monsters don't attack other friends
     pl && !(actor->flags & pl->flags & MF_FRIEND) &&
     (P_AproxDistance(pl->x-actor->x, pl->y-actor->y) <
-     MELEERANGE - 20*FRACUNIT + pl->info->radius) &&
+     MELEERANGE - 20*FRACUNIT + mobjinfo[pl->type].radius) &&
     P_CheckSight(actor, actor->target);
 }
 
@@ -158,8 +160,8 @@ static boolean P_HitFriend(mobj_t *actor)
              actor->target->x, actor->target->y),
          P_AproxDistance(actor->x-actor->target->x,
              actor->y-actor->target->y), 0),
-     linetarget) && linetarget != actor->target &&
-    !((linetarget->flags ^ actor->flags) & MF_FRIEND);
+     _g->linetarget) && _g->linetarget != actor->target &&
+    !((_g->linetarget->flags ^ actor->flags) & MF_FRIEND);
 }
 
 //
@@ -173,7 +175,7 @@ static boolean P_CheckMissileRange(mobj_t *actor)
     return false;
 
   if (actor->flags & MF_JUSTHIT)
-    {      // the target just hit the enemy, so fight back!
+  {      // the target just hit the enemy, so fight back!
       actor->flags &= ~MF_JUSTHIT;
 
       /* killough 7/18/98: no friendly fire at corpses
@@ -181,13 +183,12 @@ static boolean P_CheckMissileRange(mobj_t *actor)
        * cph - yikes, talk about fitting everything on one line... */
 
       return
-  !(actor->flags & MF_FRIEND) ||
-  (actor->target->health > 0 &&
-   (!(actor->target->flags & MF_FRIEND) ||
-    (actor->target->player ?
-     monster_infighting || P_Random(pr_defect) >128 :
-     !(actor->target->flags & MF_JUSTHIT) && P_Random(pr_defect) >128)));
-    }
+              !(actor->flags & MF_FRIEND) ||
+              (actor->target->health > 0 &&
+               (!(actor->target->flags & MF_FRIEND) ||
+                (P_MobjIsPlayer(actor->target) ? true :
+                     !(actor->target->flags & MF_JUSTHIT) && P_Random() >128)));
+  }
 
   /* killough 7/18/98: friendly monsters don't attack other friendly
    * monsters or players (except when attacked, and then only once)
@@ -202,7 +203,7 @@ static boolean P_CheckMissileRange(mobj_t *actor)
   dist = P_AproxDistance ( actor->x-actor->target->x,
                            actor->y-actor->target->y) - 64*FRACUNIT;
 
-  if (!actor->info->meleestate)
+  if (!mobjinfo[actor->type].meleestate)
     dist -= 128*FRACUNIT;       // no melee attack, so fire more
 
   dist >>= FRACBITS;
@@ -230,7 +231,7 @@ static boolean P_CheckMissileRange(mobj_t *actor)
   if (actor->type == MT_CYBORG && dist > 160)
     dist = 160;
 
-  if (P_Random(pr_missrange) < dist)
+  if (P_Random() < dist)
     return false;
 
   if (P_HitFriend(actor))
@@ -253,26 +254,10 @@ static boolean P_CheckMissileRange(mobj_t *actor)
 static boolean P_IsOnLift(const mobj_t *actor)
 {
   const sector_t *sec = actor->subsector->sector;
-  line_t line;
-  int l;
 
   // Short-circuit: it's on a lift which is active.
   if (sec->floordata && ((thinker_t *) sec->floordata)->function==T_PlatRaise)
     return true;
-
-  // Check to see if it's in a sector which can be activated as a lift.
-  if ((line.tag = sec->tag))
-    for (l = -1; (l = P_FindLineFromLineTag(&line, l)) >= 0;)
-      switch (lines[l].special)
-  {
-  case  10: case  14: case  15: case  20: case  21: case  22:
-  case  47: case  53: case  62: case  66: case  67: case  68:
-  case  87: case  88: case  95: case 120: case 121: case 122:
-  case 123: case 143: case 162: case 163: case 181: case 182:
-  case 144: case 148: case 149: case 211: case 227: case 228:
-  case 231: case 232: case 235: case 236:
-    return true;
-  }
 
   return false;
 }
@@ -305,19 +290,13 @@ static int P_IsUnderDamage(mobj_t *actor)
 // returns false if the move is blocked.
 //
 
-static fixed_t xspeed[8] = {FRACUNIT,47000,0,-47000,-FRACUNIT,-47000,0,47000};
-static fixed_t yspeed[8] = {0,47000,FRACUNIT,47000,0,-47000,-FRACUNIT,-47000};
-
-// 1/11/98 killough: Limit removed on special lines crossed
-extern  line_t **spechit;          // New code -- killough
-extern  int    numspechit;
+static const fixed_t xspeed[8] = {FRACUNIT,47000,0,-47000,-FRACUNIT,-47000,0,47000};
+static const fixed_t yspeed[8] = {0,47000,FRACUNIT,47000,0,-47000,-FRACUNIT,-47000};
 
 static boolean P_Move(mobj_t *actor, boolean dropoff) /* killough 9/12/98 */
 {
   fixed_t tryx, tryy, deltax, deltay, origx, origy;
   boolean try_ok;
-  int movefactor = ORIG_FRICTION_FACTOR;    // killough 10/98
-  int friction = ORIG_FRICTION;
   int speed;
 
   if (actor->movedir == DI_NODIR)
@@ -328,42 +307,20 @@ static boolean P_Move(mobj_t *actor, boolean dropoff) /* killough 9/12/98 */
     I_Error ("P_Move: Weird actor->movedir!");
 #endif
 
-  // killough 10/98: make monsters get affected by ice and sludge too:
-
-  if (monster_friction)
-    movefactor = P_GetMoveFactor(actor, &friction);
-
-  speed = actor->info->speed;
-
-  if (friction < ORIG_FRICTION &&     // sludge
-      !(speed = ((ORIG_FRICTION_FACTOR - (ORIG_FRICTION_FACTOR-movefactor)/2)
-     * speed) / ORIG_FRICTION_FACTOR))
-    speed = 1;      // always give the monster a little bit of speed
+  speed = mobjinfo[actor->type].speed;
 
   tryx = (origx = actor->x) + (deltax = speed * xspeed[actor->movedir]);
   tryy = (origy = actor->y) + (deltay = speed * yspeed[actor->movedir]);
 
   try_ok = P_TryMove(actor, tryx, tryy, dropoff);
 
-  // killough 10/98:
-  // Let normal momentum carry them, instead of steptoeing them across ice.
-
-  if (try_ok && friction > ORIG_FRICTION)
-    {
-      actor->x = origx;
-      actor->y = origy;
-      movefactor *= FRACUNIT / ORIG_FRICTION_FACTOR / 4;
-      actor->momx += FixedMul(deltax, movefactor);
-      actor->momy += FixedMul(deltay, movefactor);
-    }
-
   if (!try_ok)
     {      // open any specials
       int good;
 
-      if (actor->flags & MF_FLOAT && floatok)
+      if (actor->flags & MF_FLOAT && _g->floatok)
         {
-          if (actor->z < tmfloorz)          // must adjust height
+          if (actor->z < _g->tmfloorz)          // must adjust height
             actor->z += FLOATSPEED;
           else
             actor->z -= FLOATSPEED;
@@ -373,7 +330,7 @@ static boolean P_Move(mobj_t *actor, boolean dropoff) /* killough 9/12/98 */
     return true;
         }
 
-      if (!numspechit)
+      if (!_g->numspechit)
         return false;
 
       actor->movedir = DI_NODIR;
@@ -395,27 +352,24 @@ static boolean P_Move(mobj_t *actor, boolean dropoff) /* killough 9/12/98 */
        * back out when they shouldn't, and creates secondary stickiness).
        */
 
-      for (good = false; numspechit--; )
-        if (P_UseSpecialLine(actor, spechit[numspechit], 0))
-    good |= spechit[numspechit] == blockline ? 1 : 2;
+      for (good = false; _g->numspechit--; )
+        if (P_UseSpecialLine(actor, _g->spechit[_g->numspechit], 0))
+    good |= _g->spechit[_g->numspechit] == _g->blockline ? 1 : 2;
 
       /* cph - compatibility maze here
        * Boom v2.01 and orig. Doom return "good"
        * Boom v2.02 and LxDoom return good && (P_Random(pr_trywalk)&3)
        * MBF plays even more games
        */
-      if (!good || comp[comp_doorstuck]) return good;
-      if (!mbf_features)
-  return (P_Random(pr_trywalk)&3); /* jff 8/13/98 */
-      else /* finally, MBF code */
-  return ((P_Random(pr_opendoor) >= 230) ^ (good & 1));
+      if (!good) return good;
+  return ((P_Random() >= 230) ^ (good & 1));
     }
   else
     actor->flags &= ~MF_INFLOAT;
 
   /* killough 11/98: fall more slowly, under gravity, if felldown==true */
   if (!(actor->flags & MF_FLOAT) &&
-      (!felldown || !mbf_features))
+      (!_g->felldown))
     actor->z = actor->floorz;
 
   return true;
@@ -433,40 +387,24 @@ static boolean P_SmartMove(mobj_t *actor)
   int on_lift, dropoff = false, under_damage;
 
   /* killough 9/12/98: Stay on a lift if target is on one */
-  on_lift = !comp[comp_staylift]
-    && target && target->health > 0
-    && target->subsector->sector->tag==actor->subsector->sector->tag &&
-    P_IsOnLift(actor);
+  on_lift = target && target->health > 0
+    && target->subsector->sector->tag==actor->subsector->sector->tag && P_IsOnLift(actor);
 
-  under_damage = monster_avoid_hazards && P_IsUnderDamage(actor);
 
-  // killough 10/98: allow dogs to drop off of taller ledges sometimes.
-  // dropoff==1 means always allow it, dropoff==2 means only up to 128 high,
-  // and only if the target is immediately on the other side of the line.
-
-#ifdef DOGS
-  // haleyjd: allow all friends of HelperType to also jump down
-
-  if ((actor->type == MT_DOGS || (actor->type == (HelperThing-1) && actor->flags&MF_FRIEND))
-      && target && dog_jumping &&
-      !((target->flags ^ actor->flags) & MF_FRIEND) &&
-      P_AproxDistance(actor->x - target->x,
-          actor->y - target->y) < FRACUNIT*144 &&
-      P_Random(pr_dropoff) < 235)
-    dropoff = 2;
-#endif
 
   if (!P_Move(actor, dropoff))
     return false;
 
+  under_damage = P_IsUnderDamage(actor);
+
   // killough 9/9/98: avoid crushing ceilings or other damaging areas
   if (
-      (on_lift && P_Random(pr_stayonlift) < 230 &&      // Stay on lift
+      (on_lift && P_Random() < 230 &&      // Stay on lift
        !P_IsOnLift(actor))
       ||
-      (monster_avoid_hazards && !under_damage &&  // Get away from damage
+      (!under_damage &&  // Get away from damage
        (under_damage = P_IsUnderDamage(actor)) &&
-       (under_damage < 0 || P_Random(pr_avoidcrush) < 200))
+       (under_damage < 0 || P_Random() < 200))
       )
     actor->movedir = DI_NODIR;    // avoid the area (most of the time anyway)
 
@@ -489,7 +427,7 @@ static boolean P_TryWalk(mobj_t *actor)
 {
   if (!P_SmartMove(actor))
     return false;
-  actor->movecount = P_Random(pr_trywalk)&15;
+  actor->movecount = P_Random()&15;
   return true;
 }
 
@@ -504,9 +442,9 @@ static boolean P_TryWalk(mobj_t *actor)
 
 static void P_DoNewChaseDir(mobj_t *actor, fixed_t deltax, fixed_t deltay)
 {
-  dirtype_t xdir, ydir, tdir;
-  dirtype_t olddir = actor->movedir;
-  dirtype_t turnaround = olddir;
+  int xdir, ydir, tdir;
+  int olddir = actor->movedir;
+  int turnaround = olddir;
 
   if (turnaround != DI_NODIR)         // find reverse direction
     turnaround ^= 4;
@@ -526,7 +464,7 @@ static void P_DoNewChaseDir(mobj_t *actor, fixed_t deltax, fixed_t deltay)
     return;
 
   // try other directions
-  if (P_Random(pr_newchase) > 200 || D_abs(deltay)>D_abs(deltax))
+  if (P_Random() > 200 || D_abs(deltay)>D_abs(deltax))
     tdir = xdir, xdir = ydir, ydir = tdir;
 
   if ((xdir == turnaround ? xdir = DI_NODIR : xdir) != DI_NODIR &&
@@ -542,16 +480,18 @@ static void P_DoNewChaseDir(mobj_t *actor, fixed_t deltax, fixed_t deltay)
     return;
 
   // randomly determine direction of search
-  if (P_Random(pr_newchasedir) & 1)
-    {
+  if (P_Random() & 1)
+  {
       for (tdir = DI_EAST; tdir <= DI_SOUTHEAST; tdir++)
-        if (tdir != turnaround && (actor->movedir = tdir, P_TryWalk(actor)))
-    return;
-    }
+          if (tdir != turnaround && (actor->movedir = tdir, P_TryWalk(actor)))
+              return;
+  }
   else
-    for (tdir = DI_SOUTHEAST; tdir != DI_EAST-1; tdir--)
-      if (tdir != turnaround && (actor->movedir = tdir, P_TryWalk(actor)))
-  return;
+  {
+      for (tdir = DI_SOUTHEAST; tdir >= DI_EAST; tdir--)
+          if (tdir != turnaround && (actor->movedir = tdir, P_TryWalk(actor)))
+              return;
+  }
 
   if ((actor->movedir = turnaround) != DI_NODIR && !P_TryWalk(actor))
     actor->movedir = DI_NODIR;
@@ -568,36 +508,34 @@ static void P_DoNewChaseDir(mobj_t *actor, fixed_t deltax, fixed_t deltay)
 // monsters to free themselves without making them tend to
 // hang over dropoffs.
 
-static fixed_t dropoff_deltax, dropoff_deltay, floorz;
-
-static boolean PIT_AvoidDropoff(line_t *line)
+static boolean PIT_AvoidDropoff(const line_t *line)
 {
-  if (line->backsector                          && // Ignore one-sided linedefs
-      tmbbox[BOXRIGHT]  > line->bbox[BOXLEFT]   &&
-      tmbbox[BOXLEFT]   < line->bbox[BOXRIGHT]  &&
-      tmbbox[BOXTOP]    > line->bbox[BOXBOTTOM] && // Linedef must be contacted
-      tmbbox[BOXBOTTOM] < line->bbox[BOXTOP]    &&
-      P_BoxOnLineSide(tmbbox, line) == -1)
+  if (LN_BACKSECTOR(line)                          && // Ignore one-sided linedefs
+      _g->tmbbox[BOXRIGHT]  > line->bbox[BOXLEFT]   &&
+      _g->tmbbox[BOXLEFT]   < line->bbox[BOXRIGHT]  &&
+      _g->tmbbox[BOXTOP]    > line->bbox[BOXBOTTOM] && // Linedef must be contacted
+      _g->tmbbox[BOXBOTTOM] < line->bbox[BOXTOP]    &&
+      P_BoxOnLineSide(_g->tmbbox, line) == -1)
     {
-      fixed_t front = line->frontsector->floorheight;
-      fixed_t back  = line->backsector->floorheight;
+      fixed_t front = LN_FRONTSECTOR(line)->floorheight;
+      fixed_t back  = LN_BACKSECTOR(line)->floorheight;
       angle_t angle;
 
       // The monster must contact one of the two floors,
       // and the other must be a tall dropoff (more than 24).
 
-      if (back == floorz && front < floorz - FRACUNIT*24)
+      if (back == _g->floorz && front < _g->floorz - FRACUNIT*24)
   angle = R_PointToAngle2(0,0,line->dx,line->dy);   // front side dropoff
       else
-  if (front == floorz && back < floorz - FRACUNIT*24)
+  if (front == _g->floorz && back < _g->floorz - FRACUNIT*24)
     angle = R_PointToAngle2(line->dx,line->dy,0,0); // back side dropoff
   else
     return true;
 
       // Move away from dropoff at a standard speed.
       // Multiple contacted linedefs are cumulative (e.g. hanging over corner)
-      dropoff_deltax -= finesine[angle >> ANGLETOFINESHIFT]*32;
-      dropoff_deltay += finecosine[angle >> ANGLETOFINESHIFT]*32;
+      _g->dropoff_deltax -= finesine[angle >> ANGLETOFINESHIFT]*32;
+      _g->dropoff_deltay += finecosine[angle >> ANGLETOFINESHIFT]*32;
     }
   return true;
 }
@@ -608,25 +546,26 @@ static boolean PIT_AvoidDropoff(line_t *line)
 
 static fixed_t P_AvoidDropoff(mobj_t *actor)
 {
-  int yh=((tmbbox[BOXTOP]   = actor->y+actor->radius)-bmaporgy)>>MAPBLOCKSHIFT;
-  int yl=((tmbbox[BOXBOTTOM]= actor->y-actor->radius)-bmaporgy)>>MAPBLOCKSHIFT;
-  int xh=((tmbbox[BOXRIGHT] = actor->x+actor->radius)-bmaporgx)>>MAPBLOCKSHIFT;
-  int xl=((tmbbox[BOXLEFT]  = actor->x-actor->radius)-bmaporgx)>>MAPBLOCKSHIFT;
+  int yh=((_g->tmbbox[BOXTOP]   = actor->y+actor->radius)-_g->bmaporgy)>>MAPBLOCKSHIFT;
+  int yl=((_g->tmbbox[BOXBOTTOM]= actor->y-actor->radius)-_g->bmaporgy)>>MAPBLOCKSHIFT;
+  int xh=((_g->tmbbox[BOXRIGHT] = actor->x+actor->radius)-_g->bmaporgx)>>MAPBLOCKSHIFT;
+  int xl=((_g->tmbbox[BOXLEFT]  = actor->x-actor->radius)-_g->bmaporgx)>>MAPBLOCKSHIFT;
   int bx, by;
 
-  floorz = actor->z;            // remember floor height
+  _g->floorz = actor->z;            // remember floor height
 
-  dropoff_deltax = dropoff_deltay = 0;
+  _g->dropoff_deltax = _g->dropoff_deltay = 0;
 
   // check lines
 
-  validcount++;
+  _g->validcount++;
   for (bx=xl ; bx<=xh ; bx++)
     for (by=yl ; by<=yh ; by++)
       P_BlockLinesIterator(bx, by, PIT_AvoidDropoff);  // all contacted lines
 
-  return dropoff_deltax | dropoff_deltay;   // Non-zero if movement prescribed
+  return _g->dropoff_deltax | _g->dropoff_deltay;   // Non-zero if movement prescribed
 }
+
 
 //
 // P_NewChaseDir
@@ -636,68 +575,45 @@ static fixed_t P_AvoidDropoff(mobj_t *actor)
 
 static void P_NewChaseDir(mobj_t *actor)
 {
-  mobj_t *target = actor->target;
-  fixed_t deltax = target->x - actor->x;
-  fixed_t deltay = target->y - actor->y;
+    mobj_t *target = actor->target;
+    fixed_t deltax = target->x - actor->x;
+    fixed_t deltay = target->y - actor->y;
 
-  // killough 8/8/98: sometimes move away from target, keeping distance
-  //
-  // 1) Stay a certain distance away from a friend, to avoid being in their way
-  // 2) Take advantage over an enemy without missiles, by keeping distance
+    // killough 8/8/98: sometimes move away from target, keeping distance
+    //
+    // 1) Stay a certain distance away from a friend, to avoid being in their way
+    // 2) Take advantage over an enemy without missiles, by keeping distance
 
-  actor->strafecount = 0;
-
-  if (mbf_features) {
     if (actor->floorz - actor->dropoffz > FRACUNIT*24 &&
-  actor->z <= actor->floorz &&
-  !(actor->flags & (MF_DROPOFF|MF_FLOAT)) &&
-  !comp[comp_dropoff] &&
-  P_AvoidDropoff(actor)) /* Move away from dropoff */
-      {
-  P_DoNewChaseDir(actor, dropoff_deltax, dropoff_deltay);
+            actor->z <= actor->floorz &&
+            !(actor->flags & (MF_DROPOFF|MF_FLOAT)) &&
+            P_AvoidDropoff(actor)) /* Move away from dropoff */
+    {
+        P_DoNewChaseDir(actor, _g->dropoff_deltax, _g->dropoff_deltay);
 
-  // If moving away from dropoff, set movecount to 1 so that
-  // small steps are taken to get monster away from dropoff.
+        // If moving away from dropoff, set movecount to 1 so that
+        // small steps are taken to get monster away from dropoff.
 
-  actor->movecount = 1;
-  return;
-      }
-    else
-      {
-  fixed_t dist = P_AproxDistance(deltax, deltay);
-
-  // Move away from friends when too close, except
-  // in certain situations (e.g. a crowded lift)
-
-  if (actor->flags & target->flags & MF_FRIEND &&
-      distfriend << FRACBITS > dist &&
-      !P_IsOnLift(target) && !P_IsUnderDamage(actor))
-  {
-    deltax = -deltax, deltay = -deltay;
-  } else
-    if (target->health > 0 && (actor->flags ^ target->flags) & MF_FRIEND)
-      {   // Live enemy target
-        if (monster_backing &&
-      actor->info->missilestate && actor->type != MT_SKULL &&
-      ((!target->info->missilestate && dist < MELEERANGE*2) ||
-       (target->player && dist < MELEERANGE*3 &&
-        (target->player->readyweapon == wp_fist ||
-         target->player->readyweapon == wp_chainsaw))))
-    {       // Back away from melee attacker
-      actor->strafecount = P_Random(pr_enemystrafe) & 15;
-      deltax = -deltax, deltay = -deltay;
+        actor->movecount = 1;
+        return;
     }
-      }
-      }
-  }
+    else
+    {
+        fixed_t dist = P_AproxDistance(deltax, deltay);
 
-  P_DoNewChaseDir(actor, deltax, deltay);
+        // Move away from friends when too close, except
+        // in certain situations (e.g. a crowded lift)
 
-  // If strafing, set movecount to strafecount so that old Doom
-  // logic still works the same, except in the strafing part
+        if (actor->flags & target->flags & MF_FRIEND &&
+                distfriend << FRACBITS > dist &&
+                !P_IsOnLift(target) && !P_IsUnderDamage(actor))
+        {
+            deltax = -deltax, deltay = -deltay;
+        }
+    }
 
-  if (actor->strafecount)
-    actor->movecount = actor->strafecount;
+
+    P_DoNewChaseDir(actor, deltax, deltay);
 }
 
 //
@@ -708,64 +624,20 @@ static void P_NewChaseDir(mobj_t *actor)
 
 static boolean P_IsVisible(mobj_t *actor, mobj_t *mo, boolean allaround)
 {
-  if (!allaround)
+    fixed_t dist = P_AproxDistance(mo->x-actor->x, mo->y-actor->y);
+
+    //Fix for icon of sin being blind, and having the others have bad depth perception ~Kippykip
+    if((dist > LOOKRANGE) && actor->type != MT_BOSSSPIT && actor->type != MT_CYBORG && actor->type != MT_SPIDER)
+        return false;
+
+    if (!allaround)
     {
-      angle_t an = R_PointToAngle2(actor->x, actor->y,
-           mo->x, mo->y) - actor->angle;
-      if (an > ANG90 && an < ANG270 &&
-    P_AproxDistance(mo->x-actor->x, mo->y-actor->y) > MELEERANGE)
-  return false;
+        angle_t an = R_PointToAngle2(actor->x, actor->y, mo->x, mo->y) - actor->angle;
+
+        if (an > ANG90 && an < ANG270 && dist > MELEERANGE)
+            return false;
     }
-  return P_CheckSight(actor, mo);
-}
-
-//
-// PIT_FindTarget
-//
-// killough 9/5/98
-//
-// Finds monster targets for other monsters
-//
-
-static int current_allaround;
-
-static boolean PIT_FindTarget(mobj_t *mo)
-{
-  mobj_t *actor = current_actor;
-
-  if (!((mo->flags ^ actor->flags) & MF_FRIEND &&        // Invalid target
-  mo->health > 0 && (mo->flags & MF_COUNTKILL || mo->type == MT_SKULL)))
-    return true;
-
-  // If the monster is already engaged in a one-on-one attack
-  // with a healthy friend, don't attack around 60% the time
-  {
-    const mobj_t *targ = mo->target;
-    if (targ && targ->target == mo &&
-  P_Random(pr_skiptarget) > 100 &&
-  (targ->flags ^ mo->flags) & MF_FRIEND &&
-  targ->health*2 >= targ->info->spawnhealth)
-      return true;
-  }
-
-  if (!P_IsVisible(actor, mo, current_allaround))
-    return true;
-
-  P_SetTarget(&actor->lastenemy, actor->target);  // Remember previous target
-  P_SetTarget(&actor->target, mo);                // Found target
-
-  // Move the selected monster to the end of its associated
-  // list, so that it gets searched last next time.
-
-  {
-    thinker_t *cap = &thinkerclasscap[mo->flags & MF_FRIEND ?
-             th_friends : th_enemies];
-    (mo->thinker.cprev->cnext = mo->thinker.cnext)->cprev = mo->thinker.cprev;
-    (mo->thinker.cprev = cap->cprev)->cnext = &mo->thinker;
-    (mo->thinker.cnext = cap)->cprev = &mo->thinker;
-  }
-
-  return false;
+    return P_CheckSight(actor, mo);
 }
 
 //
@@ -776,178 +648,29 @@ static boolean PIT_FindTarget(mobj_t *mo)
 
 static boolean P_LookForPlayers(mobj_t *actor, boolean allaround)
 {
-  player_t *player;
-  int stop, stopc, c;
+    player_t *player;
 
-  if (actor->flags & MF_FRIEND)
-    {  // killough 9/9/98: friendly monsters go about players differently
-      int anyone;
-
-#if 0
-      if (!allaround) // If you want friendly monsters not to awaken unprovoked
-  return false;
-#endif
-
-      // Go back to a player, no matter whether it's visible or not
-      for (anyone=0; anyone<=1; anyone++)
-  for (c=0; c<MAXPLAYERS; c++)
-    if (playeringame[c] && players[c].playerstate==PST_LIVE &&
-        (anyone || P_IsVisible(actor, players[c].mo, allaround)))
-      {
-        P_SetTarget(&actor->target, players[c].mo);
-
-        // killough 12/98:
-        // get out of refiring loop, to avoid hitting player accidentally
-
-        if (actor->info->missilestate)
+    if(_g->playeringame)
     {
-      P_SetMobjState(actor, actor->info->seestate);
-      actor->flags &= ~MF_JUSTHIT;
-    }
+        player = &_g->player;
 
-        return true;
-      }
+        if (player->health <= 0)
+            return false;               // dead
 
-      return false;
-    }
+        if (!P_IsVisible(actor, player->mo, allaround))
+            return false;
 
-  // Change mask of 3 to (MAXPLAYERS-1) -- killough 2/15/98:
-  stop = (actor->lastlook-1)&(MAXPLAYERS-1);
+        P_SetTarget(&actor->target, player->mo);
 
-  c = 0;
-
-  stopc = !mbf_features &&
-    !demo_compatibility && monsters_remember ?
-    MAXPLAYERS : 2;       // killough 9/9/98
-
-  for (;; actor->lastlook = (actor->lastlook+1)&(MAXPLAYERS-1))
-    {
-      if (!playeringame[actor->lastlook])
-  continue;
-
-      // killough 2/15/98, 9/9/98:
-      if (c++ == stopc || actor->lastlook == stop)  // done looking
-      {
-        // e6y
-        // Fixed Boom incompatibilities. The following code was missed.
-        // There are no more desyncs on Donce's demos on horror.wad
-
-        // Use last known enemy if no players sighted -- killough 2/15/98:
-        if (!mbf_features && !demo_compatibility && monsters_remember)
-        {
-          if (actor->lastenemy && actor->lastenemy->health > 0)
-          {
-            actor->target = actor->lastenemy;
-            actor->lastenemy = NULL;
-            return true;
-          }
-        }
-
-        return false;
-      }
-
-      player = &players[actor->lastlook];
-
-      if (player->health <= 0)
-  continue;               // dead
-
-      if (!P_IsVisible(actor, player->mo, allaround))
-  continue;
-
-      P_SetTarget(&actor->target, player->mo);
-
-      /* killough 9/9/98: give monsters a threshold towards getting players
+        /* killough 9/9/98: give monsters a threshold towards getting players
        * (we don't want it to be too easy for a player with dogs :)
        */
-      if (!comp[comp_pursuit])
-  actor->threshold = 60;
+        actor->threshold = 60;
 
-      return true;
+        return true;
     }
-}
 
-//
-// Friendly monsters, by Lee Killough 7/18/98
-//
-// Friendly monsters go after other monsters first, but
-// also return to owner if they cannot find any targets.
-// A marine's best friend :)  killough 7/18/98, 9/98
-//
-
-static boolean P_LookForMonsters(mobj_t *actor, boolean allaround)
-{
-  thinker_t *cap, *th;
-
-  if (demo_compatibility)
     return false;
-
-  if (actor->lastenemy && actor->lastenemy->health > 0 && monsters_remember &&
-      !(actor->lastenemy->flags & actor->flags & MF_FRIEND)) // not friends
-    {
-      P_SetTarget(&actor->target, actor->lastenemy);
-      P_SetTarget(&actor->lastenemy, NULL);
-      return true;
-    }
-
-  /* Old demos do not support monster-seeking bots */
-  if (!mbf_features)
-    return false;
-
-  // Search the threaded list corresponding to this object's potential targets
-  cap = &thinkerclasscap[actor->flags & MF_FRIEND ? th_enemies : th_friends];
-
-  // Search for new enemy
-
-  if (cap->cnext != cap)        // Empty list? bail out early
-    {
-      int x = (actor->x - bmaporgx)>>MAPBLOCKSHIFT;
-      int y = (actor->y - bmaporgy)>>MAPBLOCKSHIFT;
-      int d;
-
-      current_actor = actor;
-      current_allaround = allaround;
-
-      // Search first in the immediate vicinity.
-
-      if (!P_BlockThingsIterator(x, y, PIT_FindTarget))
-  return true;
-
-      for (d=1; d<5; d++)
-  {
-    int i = 1 - d;
-    do
-      if (!P_BlockThingsIterator(x+i, y-d, PIT_FindTarget) ||
-    !P_BlockThingsIterator(x+i, y+d, PIT_FindTarget))
-        return true;
-    while (++i < d);
-    do
-      if (!P_BlockThingsIterator(x-d, y+i, PIT_FindTarget) ||
-    !P_BlockThingsIterator(x+d, y+i, PIT_FindTarget))
-        return true;
-    while (--i + d >= 0);
-  }
-
-      {   // Random number of monsters, to prevent patterns from forming
-  int n = (P_Random(pr_friends) & 31) + 15;
-
-  for (th = cap->cnext; th != cap; th = th->cnext)
-    if (--n < 0)
-      {
-        // Only a subset of the monsters were searched. Move all of
-        // the ones which were searched so far, to the end of the list.
-
-        (cap->cnext->cprev = cap->cprev)->cnext = cap->cnext;
-        (cap->cprev = th->cprev)->cnext = cap;
-        (th->cprev = cap)->cnext = th;
-        break;
-     }
-    else
-      if (!PIT_FindTarget((mobj_t *) th))   // If target sighted
-        return true;
-      }
-    }
-
-  return false;  // No monster found
 }
 
 //
@@ -958,50 +681,10 @@ static boolean P_LookForMonsters(mobj_t *actor, boolean allaround)
 
 static boolean P_LookForTargets(mobj_t *actor, int allaround)
 {
-  return actor->flags & MF_FRIEND ?
-    P_LookForMonsters(actor, allaround) || P_LookForPlayers (actor, allaround):
-    P_LookForPlayers (actor, allaround) || P_LookForMonsters(actor, allaround);
+    return P_LookForPlayers (actor, allaround);
 }
 
-//
-// P_HelpFriend
-//
-// killough 9/8/98: Help friends in danger of dying
-//
 
-static boolean P_HelpFriend(mobj_t *actor)
-{
-  thinker_t *cap, *th;
-
-  // If less than 33% health, self-preservation rules
-  if (actor->health*3 < actor->info->spawnhealth)
-    return false;
-
-  current_actor = actor;
-  current_allaround = true;
-
-  // Possibly help a friend under 50% health
-  cap = &thinkerclasscap[actor->flags & MF_FRIEND ? th_friends : th_enemies];
-
-  for (th = cap->cnext; th != cap; th = th->cnext)
-    if (((mobj_t *) th)->health*2 >= ((mobj_t *) th)->info->spawnhealth)
-      {
-  if (P_Random(pr_helpfriend) < 180)
-    break;
-      }
-    else
-      if (((mobj_t *) th)->flags & MF_JUSTHIT &&
-    ((mobj_t *) th)->target &&
-    ((mobj_t *) th)->target != actor->target &&
-    !PIT_FindTarget(((mobj_t *) th)->target))
-  {
-    // Ignore any attacking monsters, while searching for friend
-    actor->threshold = BASETHRESHOLD;
-    return true;
-  }
-
-  return false;
-}
 
 //
 // A_KeenDie
@@ -1026,7 +709,7 @@ void A_KeenDie(mobj_t* mo)
       }
 
   junk.tag = 666;
-  EV_DoDoor(&junk,open);
+  EV_DoDoor(&junk,dopen);
 }
 
 
@@ -1041,70 +724,74 @@ void A_KeenDie(mobj_t* mo)
 
 void A_Look(mobj_t *actor)
 {
-  mobj_t *targ = actor->subsector->sector->soundtarget;
-  actor->threshold = 0; // any shot will wake up
+    mobj_t *targ = actor->subsector->sector->soundtarget;
+    actor->threshold = 0; // any shot will wake up
 
-  /* killough 7/18/98:
+    /* killough 7/18/98:
    * Friendly monsters go after other monsters first, but
    * also return to player, without attacking them, if they
    * cannot find any targets. A marine's best friend :)
    */
-  actor->pursuecount = 0;
+    actor->pursuecount = 0;
 
-  if (!(actor->flags & MF_FRIEND && P_LookForTargets(actor, false)) &&
-      !((targ = actor->subsector->sector->soundtarget) &&
-  targ->flags & MF_SHOOTABLE &&
-  (P_SetTarget(&actor->target, targ),
-   !(actor->flags & MF_AMBUSH) || P_CheckSight(actor, targ))) &&
-      (actor->flags & MF_FRIEND || !P_LookForTargets(actor, false)))
-    return;
+    boolean seen = false;
 
-  // go into chase state
-
-  if (actor->info->seesound)
+    if (targ && (targ->flags & MF_SHOOTABLE) )
     {
-      int sound;
-      switch (actor->info->seesound)
+        actor->target = targ;
+
+        if ( actor->flags & MF_AMBUSH )
+        {
+            fixed_t dist = P_AproxDistance(actor->x - targ->x, actor->y - targ->y);
+
+            if(dist <= LOOKRANGE)
+            {
+                if (P_CheckSight (actor, actor->target))
+                    seen = true;
+            }
+            else
+            {
+                return;
+            }
+        }
+        else
+            seen = true;
+    }
+
+
+    if ( (!seen) && (!P_LookForPlayers (actor, false)))
+        return;
+
+
+
+    // go into chase state
+
+    if (mobjinfo[actor->type].seesound)
+    {
+        int sound;
+        switch (mobjinfo[actor->type].seesound)
         {
         case sfx_posit1:
         case sfx_posit2:
         case sfx_posit3:
-          sound = sfx_posit1+P_Random(pr_see)%3;
-          break;
+            sound = sfx_posit1+P_Random()%3;
+            break;
 
         case sfx_bgsit1:
         case sfx_bgsit2:
-          sound = sfx_bgsit1+P_Random(pr_see)%2;
-          break;
+            sound = sfx_bgsit1+P_Random()%2;
+            break;
 
         default:
-          sound = actor->info->seesound;
-          break;
+            sound = mobjinfo[actor->type].seesound;
+            break;
         }
-      if (actor->type==MT_SPIDER || actor->type == MT_CYBORG)
-        S_StartSound(NULL, sound);          // full volume
-      else
-        S_StartSound(actor, sound);
+        if (actor->type==MT_SPIDER || actor->type == MT_CYBORG)
+            S_StartSound(NULL, sound);          // full volume
+        else
+            S_StartSound(actor, sound);
     }
-  P_SetMobjState(actor, actor->info->seestate);
-}
-
-//
-// A_KeepChasing
-//
-// killough 10/98:
-// Allows monsters to continue movement while attacking
-//
-
-static void A_KeepChasing(mobj_t *actor)
-{
-  if (actor->movecount)
-    {
-      actor->movecount--;
-      if (actor->strafecount)
-        actor->strafecount--;
-      P_SmartMove(actor);
-    }
+    P_SetMobjState(actor, mobjinfo[actor->type].seestate);
 }
 
 //
@@ -1115,127 +802,122 @@ static void A_KeepChasing(mobj_t *actor)
 
 void A_Chase(mobj_t *actor)
 {
-  if (actor->reactiontime)
-    actor->reactiontime--;
+    if (actor->reactiontime)
+        actor->reactiontime--;
 
-  if (actor->threshold) { /* modify target threshold */
-    if (!actor->target || actor->target->health <= 0)
-      actor->threshold = 0;
-    else
-      actor->threshold--;
-  }
+    if (actor->threshold)
+    { /* modify target threshold */
+        if (!actor->target || actor->target->health <= 0)
+            actor->threshold = 0;
+        else
+            actor->threshold--;
+    }
 
-  /* turn towards movement direction if not there yet
+    /* turn towards movement direction if not there yet
    * killough 9/7/98: keep facing towards target if strafing or backing out
    */
 
-  if (actor->strafecount)
-    A_FaceTarget(actor);
-  else if (actor->movedir < 8)
+    if (actor->movedir < 8)
     {
-      int delta = (actor->angle &= (7<<29)) - (actor->movedir << 29);
-      if (delta > 0)
-        actor->angle -= ANG90/2;
-      else
-        if (delta < 0)
-          actor->angle += ANG90/2;
+        int delta = (actor->angle &= (7<<29)) - (actor->movedir << 29);
+        if (delta > 0)
+            actor->angle -= ANG90/2;
+        else
+            if (delta < 0)
+                actor->angle += ANG90/2;
     }
 
-  if (!actor->target || !(actor->target->flags&MF_SHOOTABLE))
+    if (!actor->target || !(actor->target->flags&MF_SHOOTABLE))
     {
-      if (!P_LookForTargets(actor,true)) // look for a new target
-  P_SetMobjState(actor, actor->info->spawnstate); // no new target
-      return;
-    }
-
-  // do not attack twice in a row
-  if (actor->flags & MF_JUSTATTACKED)
-    {
-      actor->flags &= ~MF_JUSTATTACKED;
-      if (gameskill != sk_nightmare && !fastparm)
-        P_NewChaseDir(actor);
-      return;
-    }
-
-  // check for melee attack
-  if (actor->info->meleestate && P_CheckMeleeRange(actor))
-    {
-      if (actor->info->attacksound)
-        S_StartSound(actor, actor->info->attacksound);
-      P_SetMobjState(actor, actor->info->meleestate);
-      /* killough 8/98: remember an attack
-      * cph - DEMOSYNC? */
-      if (!actor->info->missilestate)
-  actor->flags |= MF_JUSTHIT;
-      return;
-    }
-
-  // check for missile attack
-  if (actor->info->missilestate)
-    if (!(gameskill < sk_nightmare && !fastparm && actor->movecount))
-      if (P_CheckMissileRange(actor))
-        {
-          P_SetMobjState(actor, actor->info->missilestate);
-          actor->flags |= MF_JUSTATTACKED;
-          return;
-        }
-
-  if (!actor->threshold) {
-    if (!mbf_features)
-      {   /* killough 9/9/98: for backward demo compatibility */
-  if (netgame && !P_CheckSight(actor, actor->target) &&
-      P_LookForPlayers(actor, true))
-    return;
-      }
-    /* killough 7/18/98, 9/9/98: new monster AI */
-    else if (help_friends && P_HelpFriend(actor))
-      return;      /* killough 9/8/98: Help friends in need */
-    /* Look for new targets if current one is bad or is out of view */
-    else if (actor->pursuecount)
-      actor->pursuecount--;
-    else {
-  /* Our pursuit time has expired. We're going to think about
-   * changing targets */
-  actor->pursuecount = BASETHRESHOLD;
-
-  /* Unless (we have a live target
-   *         and it's not friendly
-   *         and we can see it)
-   *  try to find a new one; return if sucessful */
-
-  if (!(actor->target && actor->target->health > 0 &&
-        ((comp[comp_pursuit] && !netgame) ||
-         (((actor->target->flags ^ actor->flags) & MF_FRIEND ||
-     (!(actor->flags & MF_FRIEND) && monster_infighting)) &&
-    P_CheckSight(actor, actor->target))))
-      && P_LookForTargets(actor, true))
+        if (!P_LookForTargets(actor,true)) // look for a new target
+            P_SetMobjState(actor, mobjinfo[actor->type].spawnstate); // no new target
         return;
-
-  /* (Current target was good, or no new target was found.)
-   *
-   * If monster is a missile-less friend, give up pursuit and
-   * return to player, if no attacks have occurred recently.
-   */
-
-  if (!actor->info->missilestate && actor->flags & MF_FRIEND) {
-    if (actor->flags & MF_JUSTHIT)          /* if recent action, */
-      actor->flags &= ~MF_JUSTHIT;          /* keep fighting */
-    else if (P_LookForPlayers(actor, true)) /* else return to player */
-      return;
-  }
     }
-  }
 
-  if (actor->strafecount)
-    actor->strafecount--;
+    // do not attack twice in a row
+    if (actor->flags & MF_JUSTATTACKED)
+    {
+        actor->flags &= ~MF_JUSTATTACKED;
+        if (_g->gameskill != sk_nightmare)
+            P_NewChaseDir(actor);
+        return;
+    }
 
-  // chase towards player
-  if (--actor->movecount<0 || !P_SmartMove(actor))
-    P_NewChaseDir(actor);
+    // check for melee attack
+    if (mobjinfo[actor->type].meleestate && P_CheckMeleeRange(actor))
+    {
+        if (mobjinfo[actor->type].attacksound)
+            S_StartSound(actor, mobjinfo[actor->type].attacksound);
 
-  // make active sound
-  if (actor->info->activesound && P_Random(pr_see)<3)
-    S_StartSound(actor, actor->info->activesound);
+        P_SetMobjState(actor, mobjinfo[actor->type].meleestate);
+        /* killough 8/98: remember an attack
+      * cph - DEMOSYNC? */
+        if (!mobjinfo[actor->type].missilestate)
+            actor->flags |= MF_JUSTHIT;
+        return;
+    }
+
+    // check for missile attack
+    if (mobjinfo[actor->type].missilestate)
+    {
+        if (!(_g->gameskill < sk_nightmare && actor->movecount))
+        {
+            if (P_CheckMissileRange(actor))
+            {
+                P_SetMobjState(actor, mobjinfo[actor->type].missilestate);
+                actor->flags |= MF_JUSTATTACKED;
+                return;
+            }
+        }
+    }
+
+
+    if (!actor->threshold)
+    {
+        if (actor->pursuecount)
+            actor->pursuecount--;
+        else
+        {
+            /* Our pursuit time has expired. We're going to think about
+             * changing targets */
+            actor->pursuecount = BASETHRESHOLD;
+
+          /* Unless (we have a live target
+           *         and it's not friendly
+           *         and we can see it)
+           *  try to find a new one; return if sucessful */
+
+            if (!(actor->target && actor->target->health > 0 &&
+                  (
+                      (((actor->target->flags ^ actor->flags) & MF_FRIEND ||
+                        (!(actor->flags & MF_FRIEND))) &&
+                       P_CheckSight(actor, actor->target))))
+                    && P_LookForTargets(actor, true))
+                return;
+
+            /* (Current target was good, or no new target was found.)
+           *
+           * If monster is a missile-less friend, give up pursuit and
+           * return to player, if no attacks have occurred recently.
+           */
+
+            if (!mobjinfo[actor->type].missilestate && actor->flags & MF_FRIEND)
+            {
+                if (actor->flags & MF_JUSTHIT)          /* if recent action, */
+                    actor->flags &= ~MF_JUSTHIT;          /* keep fighting */
+                else if (P_LookForPlayers(actor, true)) /* else return to player */
+                    return;
+            }
+        }
+    }
+
+    // chase towards player
+    if (--actor->movecount<0 || !P_SmartMove(actor))
+        P_NewChaseDir(actor);
+
+    // make active sound
+    if (mobjinfo[actor->type].activesound && P_Random()<3)
+        S_StartSound(actor, mobjinfo[actor->type].activesound);
 }
 
 //
@@ -1250,8 +932,8 @@ void A_FaceTarget(mobj_t *actor)
                                  actor->target->x, actor->target->y);
   if (actor->target->flags & MF_SHADOW)
     { // killough 5/5/98: remove dependence on order of evaluation:
-      int t = P_Random(pr_facetarget);
-      actor->angle += (t-P_Random(pr_facetarget))<<21;
+      int t = P_Random();
+      actor->angle += (t-P_Random())<<21;
     }
 }
 
@@ -1271,9 +953,9 @@ void A_PosAttack(mobj_t *actor)
   S_StartSound(actor, sfx_pistol);
 
   // killough 5/5/98: remove dependence on order of evaluation:
-  t = P_Random(pr_posattack);
-  angle += (t - P_Random(pr_posattack))<<20;
-  damage = (P_Random(pr_posattack)%5 + 1)*3;
+  t = P_Random();
+  angle += (t - P_Random())<<20;
+  damage = (P_Random()%5 + 1)*3;
   P_LineAttack(actor, angle, MISSILERANGE, slope, damage);
 }
 
@@ -1289,9 +971,9 @@ void A_SPosAttack(mobj_t* actor)
   slope = P_AimLineAttack(actor, bangle, MISSILERANGE, 0); /* killough 8/2/98 */
   for (i=0; i<3; i++)
     {  // killough 5/5/98: remove dependence on order of evaluation:
-      int t = P_Random(pr_sposattack);
-      int angle = bangle + ((t - P_Random(pr_sposattack))<<20);
-      int damage = ((P_Random(pr_sposattack)%5)+1)*3;
+      int t = P_Random();
+      int angle = bangle + ((t - P_Random())<<20);
+      int damage = ((P_Random()%5)+1)*3;
       P_LineAttack(actor, angle, MISSILERANGE, slope, damage);
     }
 }
@@ -1308,9 +990,9 @@ void A_CPosAttack(mobj_t *actor)
   slope = P_AimLineAttack(actor, bangle, MISSILERANGE, 0); /* killough 8/2/98 */
 
   // killough 5/5/98: remove dependence on order of evaluation:
-  t = P_Random(pr_cposattack);
-  angle = bangle + ((t - P_Random(pr_cposattack))<<20);
-  damage = ((P_Random(pr_cposattack)%5)+1)*3;
+  t = P_Random();
+  angle = bangle + ((t - P_Random())<<20);
+  damage = ((P_Random()%5)+1)*3;
   P_LineAttack(actor, angle, MISSILERANGE, slope, damage);
 }
 
@@ -1324,7 +1006,7 @@ void A_CPosRefire(mobj_t *actor)
     goto stop;
 
   /* killough 11/98: prevent refiring on friends continuously */
-  if (P_Random(pr_cposrefire) < 40) {
+  if (P_Random() < 40) {
     if (actor->target && actor->flags & actor->target->flags & MF_FRIEND)
       goto stop;
     else
@@ -1333,7 +1015,7 @@ void A_CPosRefire(mobj_t *actor)
 
   if (!actor->target || actor->target->health <= 0
       || !P_CheckSight(actor, actor->target))
-stop:  P_SetMobjState(actor, actor->info->seestate);
+stop:  P_SetMobjState(actor, mobjinfo[actor->type].seestate);
 }
 
 void A_SpidRefire(mobj_t* actor)
@@ -1345,14 +1027,14 @@ void A_SpidRefire(mobj_t* actor)
   if (P_HitFriend(actor))
     goto stop;
 
-  if (P_Random(pr_spidrefire) < 10)
+  if (P_Random() < 10)
     return;
 
   // killough 11/98: prevent refiring on friends continuously
   if (!actor->target || actor->target->health <= 0
       || actor->flags & actor->target->flags & MF_FRIEND
       || !P_CheckSight(actor, actor->target))
-    stop: P_SetMobjState(actor, actor->info->seestate);
+    stop: P_SetMobjState(actor, mobjinfo[actor->type].seestate);
 }
 
 void A_BspiAttack(mobj_t *actor)
@@ -1376,7 +1058,7 @@ void A_TroopAttack(mobj_t *actor)
     {
       int damage;
       S_StartSound(actor, sfx_claw);
-      damage = (P_Random(pr_troopattack)%8+1)*3;
+      damage = (P_Random()%8+1)*3;
       P_DamageMobj(actor->target, actor, actor, damage);
       return;
     }
@@ -1390,7 +1072,7 @@ void A_SargAttack(mobj_t *actor)
   A_FaceTarget(actor);
   if (P_CheckMeleeRange(actor))
     {
-      int damage = ((P_Random(pr_sargattack)%10)+1)*4;
+      int damage = ((P_Random()%10)+1)*4;
       P_DamageMobj(actor->target, actor, actor, damage);
     }
 }
@@ -1402,7 +1084,7 @@ void A_HeadAttack(mobj_t *actor)
   A_FaceTarget (actor);
   if (P_CheckMeleeRange(actor))
     {
-      int damage = (P_Random(pr_headattack)%6+1)*10;
+      int damage = (P_Random()%6+1)*10;
       P_DamageMobj(actor->target, actor, actor, damage);
       return;
     }
@@ -1414,6 +1096,7 @@ void A_CyberAttack(mobj_t *actor)
   if (!actor->target)
     return;
   A_FaceTarget(actor);
+  S_StartSound(actor, sfx_rlaunc);
   P_SpawnMissile(actor, actor->target, MT_ROCKET);
 }
 
@@ -1425,7 +1108,7 @@ void A_BruisAttack(mobj_t *actor)
     {
       int damage;
       S_StartSound(actor, sfx_claw);
-      damage = (P_Random(pr_bruisattack)%8+1)*10;
+      damage = (P_Random()%8+1)*10;
       P_DamageMobj(actor->target, actor, actor, damage);
       return;
     }
@@ -1453,7 +1136,7 @@ void A_SkelMissile(mobj_t *actor)
   P_SetTarget(&mo->tracer, actor->target);
 }
 
-int     TRACEANGLE = 0xc000000;
+static const int TRACEANGLE = 0xc000000;
 
 void A_Tracer(mobj_t *actor)
 {
@@ -1478,7 +1161,7 @@ void A_Tracer(mobj_t *actor)
    * and improvise around it (using leveltime causes desync across levels).
    */
 
-  if ((gametic-basetic) & 3)
+  if ((_g->gametic-_g->basetic) & 3)
     return;
 
   // spawn a puff of smoke behind the rocket
@@ -1489,7 +1172,7 @@ void A_Tracer(mobj_t *actor)
                     actor->z, MT_SMOKE);
 
   th->momz = FRACUNIT;
-  th->tics -= P_Random(pr_tracer) & 3;
+  th->tics -= P_Random() & 3;
   if (th->tics < 1)
     th->tics = 1;
 
@@ -1518,13 +1201,13 @@ void A_Tracer(mobj_t *actor)
   }
 
   exact = actor->angle>>ANGLETOFINESHIFT;
-  actor->momx = FixedMul(actor->info->speed, finecosine[exact]);
-  actor->momy = FixedMul(actor->info->speed, finesine[exact]);
+  actor->momx = FixedMul(mobjinfo[actor->type].speed, finecosine[exact]);
+  actor->momy = FixedMul(mobjinfo[actor->type].speed, finesine[exact]);
 
   // change slope
   dist = P_AproxDistance(dest->x - actor->x, dest->y - actor->y);
 
-  dist = dist / actor->info->speed;
+  dist = dist / mobjinfo[actor->type].speed;
 
   if (dist < 1)
     dist = 1;
@@ -1552,7 +1235,7 @@ void A_SkelFist(mobj_t *actor)
   A_FaceTarget(actor);
   if (P_CheckMeleeRange(actor))
     {
-      int damage = ((P_Random(pr_skelfist)%10)+1)*6;
+      int damage = ((P_Random()%10)+1)*6;
       S_StartSound(actor, sfx_skepch);
       P_DamageMobj(actor->target, actor, actor, damage);
     }
@@ -1563,67 +1246,58 @@ void A_SkelFist(mobj_t *actor)
 // Detect a corpse that could be raised.
 //
 
-mobj_t* corpsehit;
-mobj_t* vileobj;
-fixed_t viletryx;
-fixed_t viletryy;
 
 static boolean PIT_VileCheck(mobj_t *thing)
 {
-  int     maxdist;
-  boolean check;
+    int     maxdist;
+    boolean check;
 
-  if (!(thing->flags & MF_CORPSE) )
-    return true;        // not a monster
+    if (!(thing->flags & MF_CORPSE) )
+        return true;        // not a monster
 
-  if (thing->tics != -1)
-    return true;        // not lying still yet
+    if (thing->tics != -1)
+        return true;        // not lying still yet
 
-  if (thing->info->raisestate == S_NULL)
-    return true;        // monster doesn't have a raise state
+    if (mobjinfo[thing->type].raisestate == S_NULL)
+        return true;        // monster doesn't have a raise state
 
-  maxdist = thing->info->radius + mobjinfo[MT_VILE].radius;
+    maxdist = mobjinfo[thing->type].radius + mobjinfo[MT_VILE].radius;
 
-  if (D_abs(thing->x-viletryx) > maxdist || D_abs(thing->y-viletryy) > maxdist)
-    return true;                // not actually touching
+    if (D_abs(thing->x-_g->viletryx) > maxdist || D_abs(thing->y-_g->viletryy) > maxdist)
+        return true;                // not actually touching
 
-// Check to see if the radius and height are zero. If they are      // phares
-// then this is a crushed monster that has been turned into a       //   |
-// gib. One of the options may be to ignore this guy.               //   V
+    // Check to see if the radius and height are zero. If they are      // phares
+    // then this is a crushed monster that has been turned into a       //   |
+    // gib. One of the options may be to ignore this guy.               //   V
 
-// Option 1: the original, buggy method, -> ghost (compatibility)
-// Option 2: ressurect the monster, but not as a ghost
-// Option 3: ignore the gib
+    // Option 1: the original, buggy method, -> ghost (compatibility)
+    // Option 2: ressurect the monster, but not as a ghost
+    // Option 3: ignore the gib
 
-//    if (Option3)                                                  //   ^
-//        if ((thing->height == 0) && (thing->radius == 0))         //   |
-//            return true;                                          // phares
+    //    if (Option3)                                                  //   ^
+    //        if ((thing->height == 0) && (thing->radius == 0))         //   |
+    //            return true;                                          // phares
 
-    corpsehit = thing;
-    corpsehit->momx = corpsehit->momy = 0;
-    if (comp[comp_vile])                                            // phares
-      {                                                             //   |
-        corpsehit->height <<= 2;                                    //   V
-        check = P_CheckPosition(corpsehit,corpsehit->x,corpsehit->y);
-        corpsehit->height >>= 2;
-      }
-    else
-      {
-        int height,radius;
+    _g->corpsehit = thing;
+    _g->corpsehit->momx = _g->corpsehit->momy = 0;
 
-        height = corpsehit->height; // save temporarily
-        radius = corpsehit->radius; // save temporarily
-        corpsehit->height = corpsehit->info->height;
-        corpsehit->radius = corpsehit->info->radius;
-        corpsehit->flags |= MF_SOLID;
-        check = P_CheckPosition(corpsehit,corpsehit->x,corpsehit->y);
-        corpsehit->height = height; // restore
-        corpsehit->radius = radius; // restore                      //   ^
-        corpsehit->flags &= ~MF_SOLID;
-      }                                                             //   |
-                                                                    // phares
+    int height = _g->corpsehit->height; // save temporarily
+    int radius = _g->corpsehit->radius; // save temporarily
+
+    _g->corpsehit->height = mobjinfo[_g->corpsehit->type].height;
+    _g->corpsehit->radius = mobjinfo[_g->corpsehit->type].radius;
+    _g->corpsehit->flags |= MF_SOLID;
+
+    check = P_CheckPosition(_g->corpsehit,_g->corpsehit->x,_g->corpsehit->y);
+
+    _g->corpsehit->height = height; // restore
+    _g->corpsehit->radius = radius; // restore                      //   ^
+    _g->corpsehit->flags &= ~MF_SOLID;
+                                                          //   |
+    // phares
     if (!check)
-      return true;              // doesn't fit here
+        return true;              // doesn't fit here
+
     return false;               // got one, so stop checking
 }
 
@@ -1634,82 +1308,72 @@ static boolean PIT_VileCheck(mobj_t *thing)
 
 void A_VileChase(mobj_t* actor)
 {
-  int xl, xh;
-  int yl, yh;
-  int bx, by;
+    int xl, xh;
+    int yl, yh;
+    int bx, by;
 
-  if (actor->movedir != DI_NODIR)
+    if (actor->movedir != DI_NODIR)
     {
-      // check for corpses to raise
-      viletryx =
-        actor->x + actor->info->speed*xspeed[actor->movedir];
-      viletryy =
-        actor->y + actor->info->speed*yspeed[actor->movedir];
+        // check for corpses to raise
+        _g->viletryx =
+                actor->x + mobjinfo[actor->type].speed*xspeed[actor->movedir];
+        _g->viletryy =
+                actor->y + mobjinfo[actor->type].speed*yspeed[actor->movedir];
 
-      xl = (viletryx - bmaporgx - MAXRADIUS*2)>>MAPBLOCKSHIFT;
-      xh = (viletryx - bmaporgx + MAXRADIUS*2)>>MAPBLOCKSHIFT;
-      yl = (viletryy - bmaporgy - MAXRADIUS*2)>>MAPBLOCKSHIFT;
-      yh = (viletryy - bmaporgy + MAXRADIUS*2)>>MAPBLOCKSHIFT;
+        xl = (_g->viletryx - _g->bmaporgx - MAXRADIUS*2)>>MAPBLOCKSHIFT;
+        xh = (_g->viletryx - _g->bmaporgx + MAXRADIUS*2)>>MAPBLOCKSHIFT;
+        yl = (_g->viletryy - _g->bmaporgy - MAXRADIUS*2)>>MAPBLOCKSHIFT;
+        yh = (_g->viletryy - _g->bmaporgy + MAXRADIUS*2)>>MAPBLOCKSHIFT;
 
-      vileobj = actor;
-      for (bx=xl ; bx<=xh ; bx++)
+        for (bx=xl ; bx<=xh ; bx++)
         {
-          for (by=yl ; by<=yh ; by++)
+            for (by=yl ; by<=yh ; by++)
             {
-              // Call PIT_VileCheck to check
-              // whether object is a corpse
-              // that canbe raised.
-              if (!P_BlockThingsIterator(bx,by,PIT_VileCheck))
+                // Call PIT_VileCheck to check
+                // whether object is a corpse
+                // that canbe raised.
+                if (!P_BlockThingsIterator(bx,by,PIT_VileCheck))
                 {
-      mobjinfo_t *info;
+                    const mobjinfo_t *info;
 
-                  // got one!
-                  mobj_t* temp = actor->target;
-                  actor->target = corpsehit;
-                  A_FaceTarget(actor);
-                  actor->target = temp;
+                    // got one!
+                    mobj_t* temp = actor->target;
+                    actor->target = _g->corpsehit;
+                    A_FaceTarget(actor);
+                    actor->target = temp;
 
-                  P_SetMobjState(actor, S_VILE_HEAL1);
-                  S_StartSound(corpsehit, sfx_slop);
-                  info = corpsehit->info;
+                    P_SetMobjState(actor, S_VILE_HEAL1);
+                    S_StartSound(_g->corpsehit, sfx_slop);
+                    info = &mobjinfo[_g->corpsehit->type];
 
-                  P_SetMobjState(corpsehit,info->raisestate);
+                    P_SetMobjState(_g->corpsehit,info->raisestate);
 
-                  if (comp[comp_vile])                              // phares
-                    corpsehit->height <<= 2;                        //   |
-                  else                                              //   V
-                    {
-                      corpsehit->height = info->height; // fix Ghost bug
-                      corpsehit->radius = info->radius; // fix Ghost bug
-                    }                                               // phares
+                    _g->corpsehit->height = info->height; // fix Ghost bug
+                    _g->corpsehit->radius = info->radius; // fix Ghost bug
 
-      /* killough 7/18/98:
-       * friendliness is transferred from AV to raised corpse
-       */
-      corpsehit->flags =
-        (info->flags & ~MF_FRIEND) | (actor->flags & MF_FRIEND);
+                    /* killough 7/18/98:
+                    * friendliness is transferred from AV to raised corpse
+                    */
+                    _g->corpsehit->flags =
+                            (info->flags & ~MF_FRIEND) | (actor->flags & MF_FRIEND);
 
-		  if (!((corpsehit->flags ^ MF_COUNTKILL) & (MF_FRIEND | MF_COUNTKILL)))
-		    totallive++;
-		  
-                  corpsehit->health = info->spawnhealth;
-      P_SetTarget(&corpsehit->target, NULL);  // killough 11/98
+                    if (!((_g->corpsehit->flags ^ MF_COUNTKILL) & (MF_FRIEND | MF_COUNTKILL)))
+                        _g->totallive++;
 
-      if (mbf_features)
-        {         /* kilough 9/9/98 */
-          P_SetTarget(&corpsehit->lastenemy, NULL);
-          corpsehit->flags &= ~MF_JUSTHIT;
-        }
+                    _g->corpsehit->health = info->spawnhealth;
+                    P_SetTarget(&_g->corpsehit->target, NULL);  // killough 11/98
 
-      /* killough 8/29/98: add to appropriate thread */
-      P_UpdateThinker(&corpsehit->thinker);
 
-                  return;
+                    P_SetTarget(&_g->corpsehit->lastenemy, NULL);
+                    _g->corpsehit->flags &= ~MF_JUSTHIT;
+
+
+                    return;
                 }
             }
         }
     }
-  A_Chase(actor);  // Return to normal attack.
+    A_Chase(actor);  // Return to normal attack.
 }
 
 //
@@ -1774,9 +1438,7 @@ void A_VileTarget(mobj_t *actor)
   A_FaceTarget(actor);
 
   // killough 12/98: fix Vile fog coordinates // CPhipps - compatibility optioned
-  fog = P_SpawnMobj(actor->target->x,
-    (compatibility_level < lxdoom_1_compatibility) ? actor->target->x : actor->target->y,
-                    actor->target->z,MT_FIRE);
+  fog = P_SpawnMobj(actor->target->x, actor->target->y, actor->target->z,MT_FIRE);
 
   P_SetTarget(&actor->tracer, fog);
   P_SetTarget(&fog->target, actor);
@@ -1803,7 +1465,7 @@ void A_VileAttack(mobj_t *actor)
 
   S_StartSound(actor, sfx_barexp);
   P_DamageMobj(actor->target, actor, actor, 20);
-  actor->target->momz = 1000*FRACUNIT/actor->target->info->mass;
+  actor->target->momz = 1000*FRACUNIT/mobjinfo[actor->target->type].mass;
 
   an = actor->angle >> ANGLETOFINESHIFT;
 
@@ -1851,8 +1513,8 @@ void A_FatAttack1(mobj_t *actor)
   mo = P_SpawnMissile (actor, actor->target, MT_FATSHOT);
   mo->angle += FATSPREAD;
   an = mo->angle >> ANGLETOFINESHIFT;
-  mo->momx = FixedMul(mo->info->speed, finecosine[an]);
-  mo->momy = FixedMul(mo->info->speed, finesine[an]);
+  mo->momx = FixedMul(mobjinfo[mo->type].speed, finecosine[an]);
+  mo->momy = FixedMul(mobjinfo[mo->type].speed, finesine[an]);
 }
 
 void A_FatAttack2(mobj_t *actor)
@@ -1871,8 +1533,8 @@ void A_FatAttack2(mobj_t *actor)
   mo = P_SpawnMissile(actor, actor->target, MT_FATSHOT);
   mo->angle -= FATSPREAD*2;
   an = mo->angle >> ANGLETOFINESHIFT;
-  mo->momx = FixedMul(mo->info->speed, finecosine[an]);
-  mo->momy = FixedMul(mo->info->speed, finesine[an]);
+  mo->momx = FixedMul(mobjinfo[mo->type].speed, finecosine[an]);
+  mo->momy = FixedMul(mobjinfo[mo->type].speed, finesine[an]);
 }
 
 void A_FatAttack3(mobj_t *actor)
@@ -1888,14 +1550,14 @@ void A_FatAttack3(mobj_t *actor)
   mo = P_SpawnMissile(actor, actor->target, MT_FATSHOT);
   mo->angle -= FATSPREAD/2;
   an = mo->angle >> ANGLETOFINESHIFT;
-  mo->momx = FixedMul(mo->info->speed, finecosine[an]);
-  mo->momy = FixedMul(mo->info->speed, finesine[an]);
+  mo->momx = FixedMul(mobjinfo[mo->type].speed, finecosine[an]);
+  mo->momy = FixedMul(mobjinfo[mo->type].speed, finesine[an]);
 
   mo = P_SpawnMissile(actor, actor->target, MT_FATSHOT);
   mo->angle += FATSPREAD/2;
   an = mo->angle >> ANGLETOFINESHIFT;
-  mo->momx = FixedMul(mo->info->speed, finecosine[an]);
-  mo->momy = FixedMul(mo->info->speed, finesine[an]);
+  mo->momx = FixedMul(mobjinfo[mo->type].speed, finecosine[an]);
+  mo->momy = FixedMul(mobjinfo[mo->type].speed, finesine[an]);
 }
 
 
@@ -1917,7 +1579,7 @@ void A_SkullAttack(mobj_t *actor)
   dest = actor->target;
   actor->flags |= MF_SKULLFLY;
 
-  S_StartSound(actor, actor->info->attacksound);
+  S_StartSound(actor, mobjinfo[actor->type].attacksound);
   A_FaceTarget(actor);
   an = actor->angle >> ANGLETOFINESHIFT;
   actor->momx = FixedMul(SKULLSPEED, finecosine[an]);
@@ -1937,84 +1599,66 @@ void A_SkullAttack(mobj_t *actor)
 
 static void A_PainShootSkull(mobj_t *actor, angle_t angle)
 {
-  fixed_t       x,y,z;
-  mobj_t        *newmobj;
-  angle_t       an;
-  int           prestep;
+    fixed_t       x,y,z;
+    mobj_t        *newmobj;
+    angle_t       an;
+    int           prestep;
 
-// The original code checked for 20 skulls on the level,            // phares
-// and wouldn't spit another one if there were. If not in           // phares
-// compatibility mode, we remove the limit.                         // phares
-                                                                    // phares
-  if (comp[comp_pain]) /* killough 10/98: compatibility-optioned */
-    {
-      // count total number of skulls currently on the level
-      int count = 0;
-      thinker_t *currentthinker = NULL;
-      while ((currentthinker = P_NextThinker(currentthinker,th_all)) != NULL)
-        if ((currentthinker->function == P_MobjThinker)
-            && ((mobj_t *)currentthinker)->type == MT_SKULL)
-          count++;
-      if (count > 20)                                               // phares
-        return;                                                     // phares
-    }
+    // The original code checked for 20 skulls on the level,            // phares
+    // and wouldn't spit another one if there were. If not in           // phares
+    // compatibility mode, we remove the limit.                         // phares
+    // phares
+    // okay, there's room for another one
 
-  // okay, there's room for another one
+    an = angle >> ANGLETOFINESHIFT;
 
-  an = angle >> ANGLETOFINESHIFT;
+    prestep = 4*FRACUNIT + 3*(mobjinfo[actor->type].radius + mobjinfo[MT_SKULL].radius)/2;
 
-  prestep = 4*FRACUNIT + 3*(actor->info->radius + mobjinfo[MT_SKULL].radius)/2;
+    x = actor->x + FixedMul(prestep, finecosine[an]);
+    y = actor->y + FixedMul(prestep, finesine[an]);
+    z = actor->z + 8*FRACUNIT;
+    //   V
 
-  x = actor->x + FixedMul(prestep, finecosine[an]);
-  y = actor->y + FixedMul(prestep, finesine[an]);
-  z = actor->z + 8*FRACUNIT;
+    // Check whether the Lost Soul is being fired through a 1-sided
+    // wall or an impassible line, or a "monsters can't cross" line.
+    // If it is, then we don't allow the spawn. This is a bug fix, but
+    // it should be considered an enhancement, since it may disturb
+    // existing demos, so don't do it in compatibility mode.
 
-  if (comp[comp_skull])   /* killough 10/98: compatibility-optioned */
-    newmobj = P_SpawnMobj(x, y, z, MT_SKULL);                     // phares
-  else                                                            //   V
-    {
-      // Check whether the Lost Soul is being fired through a 1-sided
-      // wall or an impassible line, or a "monsters can't cross" line.
-      // If it is, then we don't allow the spawn. This is a bug fix, but
-      // it should be considered an enhancement, since it may disturb
-      // existing demos, so don't do it in compatibility mode.
-
-      if (Check_Sides(actor,x,y))
+    if (Check_Sides(actor,x,y))
         return;
 
-      newmobj = P_SpawnMobj(x, y, z, MT_SKULL);
+    newmobj = P_SpawnMobj(x, y, z, MT_SKULL);
 
-      // Check to see if the new Lost Soul's z value is above the
-      // ceiling of its new sector, or below the floor. If so, kill it.
+    // Check to see if the new Lost Soul's z value is above the
+    // ceiling of its new sector, or below the floor. If so, kill it.
 
-      if ((newmobj->z >
-           (newmobj->subsector->sector->ceilingheight - newmobj->height)) ||
-          (newmobj->z < newmobj->subsector->sector->floorheight))
-        {
-          // kill it immediately
-          P_DamageMobj(newmobj,actor,actor,10000);
-          return;                                                 //   ^
-        }                                                         //   |
-     }                                                            // phares
-
-  /* killough 7/20/98: PEs shoot lost souls with the same friendliness */
-  newmobj->flags = (newmobj->flags & ~MF_FRIEND) | (actor->flags & MF_FRIEND);
-
-  /* killough 8/29/98: add to appropriate thread */
-  P_UpdateThinker(&newmobj->thinker);
-
-  // Check for movements.
-  // killough 3/15/98: don't jump over dropoffs:
-
-  if (!P_TryMove(newmobj, newmobj->x, newmobj->y, false))
+    if ((newmobj->z >
+         (newmobj->subsector->sector->ceilingheight - newmobj->height)) ||
+            (newmobj->z < newmobj->subsector->sector->floorheight))
     {
-      // kill it immediately
-      P_DamageMobj(newmobj, actor, actor, 10000);
-      return;
+        // kill it immediately
+        P_DamageMobj(newmobj,actor,actor,10000);
+        return;                                                 //   ^
+    }                                                         //   |
+    // phares
+
+    /* killough 7/20/98: PEs shoot lost souls with the same friendliness */
+    newmobj->flags = (newmobj->flags & ~MF_FRIEND) | (actor->flags & MF_FRIEND);
+
+
+    // Check for movements.
+    // killough 3/15/98: don't jump over dropoffs:
+
+    if (!P_TryMove(newmobj, newmobj->x, newmobj->y, false))
+    {
+        // kill it immediately
+        P_DamageMobj(newmobj, actor, actor, 10000);
+        return;
     }
 
-  P_SetTarget(&newmobj->target, actor->target);
-  A_SkullAttack(newmobj);
+    P_SetTarget(&newmobj->target, actor->target);
+    A_SkullAttack(newmobj);
 }
 
 //
@@ -2042,7 +1686,7 @@ void A_Scream(mobj_t *actor)
 {
   int sound;
 
-  switch (actor->info->deathsound)
+  switch (mobjinfo[actor->type].deathsound)
     {
     case 0:
       return;
@@ -2050,16 +1694,16 @@ void A_Scream(mobj_t *actor)
     case sfx_podth1:
     case sfx_podth2:
     case sfx_podth3:
-      sound = sfx_podth1 + P_Random(pr_scream)%3;
+      sound = sfx_podth1 + P_Random()%3;
       break;
 
     case sfx_bgdth1:
     case sfx_bgdth2:
-      sound = sfx_bgdth1 + P_Random(pr_scream)%2;
+      sound = sfx_bgdth1 + P_Random()%2;
       break;
 
     default:
-      sound = actor->info->deathsound;
+      sound = mobjinfo[actor->type].deathsound;
       break;
     }
 
@@ -2077,8 +1721,8 @@ void A_XScream(mobj_t *actor)
 
 void A_Pain(mobj_t *actor)
 {
-  if (actor->info->painsound)
-    S_StartSound(actor, actor->info->painsound);
+  if (mobjinfo[actor->type].painsound)
+    S_StartSound(actor, mobjinfo[actor->type].painsound);
 }
 
 void A_Fall(mobj_t *actor)
@@ -2103,160 +1747,133 @@ void A_Explode(mobj_t *thingy)
 
 void A_BossDeath(mobj_t *mo)
 {
-  thinker_t *th;
-  line_t    junk;
-  int       i;
+    thinker_t *th;
+    line_t    junk;
 
-  if (gamemode == commercial)
+    if (_g->gamemode == commercial)
     {
-      if (gamemap != 7)
-        return;
+        if (_g->gamemap != 7)
+            return;
 
-      if ((mo->type != MT_FATSO)
-          && (mo->type != MT_BABY))
-        return;
+        if ((mo->type != MT_FATSO)
+                && (mo->type != MT_BABY))
+            return;
     }
-  else
+    else
     {
-      // e6y
-      // Additional check of gameepisode is necessary, because 
-      // there is no right or wrong solution for E4M6 in original EXEs,
-      // there's nothing to emulate.
-      if (comp[comp_666] && gameepisode < 4)
-      {
-        // e6y
-        // Only following checks are present in doom2.exe ver. 1.666 and 1.9
-        // instead of separate checks for each episode in doomult.exe, plutonia.exe and tnt.exe
-        // There is no more desync on doom.wad\episode3.lmp
-        // http://www.doomworld.com/idgames/index.php?id=6909
-        if (gamemap != 8)
-          return;
-        if (mo->type == MT_BRUISER && gameepisode != 1) 
-          return;
-      }
-      else
-      {
-      switch(gameepisode)
         {
-        case 1:
-          if (gamemap != 8)
-            return;
-
-          if (mo->type != MT_BRUISER)
-            return;
-          break;
-
-        case 2:
-          if (gamemap != 8)
-            return;
-
-          if (mo->type != MT_CYBORG)
-            return;
-          break;
-
-        case 3:
-          if (gamemap != 8)
-            return;
-
-          if (mo->type != MT_SPIDER)
-            return;
-
-          break;
-
-        case 4:
-          switch(gamemap)
+            switch(_g->gameepisode)
             {
-            case 6:
-              if (mo->type != MT_CYBORG)
-                return;
-              break;
+            case 1:
+                if (_g->gamemap != 8)
+                    return;
 
-            case 8:
-              if (mo->type != MT_SPIDER)
-                return;
-              break;
+                if (mo->type != MT_BRUISER)
+                    return;
+                break;
+
+            case 2:
+                if (_g->gamemap != 8)
+                    return;
+
+                if (mo->type != MT_CYBORG)
+                    return;
+                break;
+
+            case 3:
+                if (_g->gamemap != 8)
+                    return;
+
+                if (mo->type != MT_SPIDER)
+                    return;
+
+                break;
+
+            case 4:
+                switch(_g->gamemap)
+                {
+                case 6:
+                    if (mo->type != MT_CYBORG)
+                        return;
+                    break;
+
+                case 8:
+                    if (mo->type != MT_SPIDER)
+                        return;
+                    break;
+
+                default:
+                    return;
+                }
+                break;
 
             default:
-              return;
-              break;
+                if (_g->gamemap != 8)
+                    return;
+                break;
             }
-          break;
-
-        default:
-          if (gamemap != 8)
-            return;
-          break;
         }
-      }
 
     }
 
-  // make sure there is a player alive for victory
-  for (i=0; i<MAXPLAYERS; i++)
-    if (playeringame[i] && players[i].health > 0)
-      break;
-
-  if (i==MAXPLAYERS)
-    return;     // no one left alive, so do not end game
+    if (!(_g->playeringame && _g->player.health > 0))
+        return;     // no one left alive, so do not end game
 
     // scan the remaining thinkers to see
     // if all bosses are dead
-  for (th = thinkercap.next ; th != &thinkercap ; th=th->next)
-    if (th->function == P_MobjThinker)
-      {
-        mobj_t *mo2 = (mobj_t *) th;
-        if (mo2 != mo && mo2->type == mo->type && mo2->health > 0)
-          return;         // other boss not dead
-      }
-
-  // victory!
-  if ( gamemode == commercial)
-    {
-      if (gamemap == 7)
+    for (th = thinkercap.next ; th != &thinkercap ; th=th->next)
+        if (th->function == P_MobjThinker)
         {
-          if (mo->type == MT_FATSO)
+            mobj_t *mo2 = (mobj_t *) th;
+            if (mo2 != mo && mo2->type == mo->type && mo2->health > 0)
+                return;         // other boss not dead
+        }
+
+    // victory!
+    if ( _g->gamemode == commercial)
+    {
+        if (_g->gamemap == 7)
+        {
+            if (mo->type == MT_FATSO)
             {
-              junk.tag = 666;
-              EV_DoFloor(&junk,lowerFloorToLowest);
-              return;
+                junk.tag = 666;
+                EV_DoFloor(&junk,lowerFloorToLowest);
+                return;
             }
 
-          if (mo->type == MT_BABY)
+            if (mo->type == MT_BABY)
             {
-              junk.tag = 667;
-              EV_DoFloor(&junk,raiseToTexture);
-              return;
+                junk.tag = 667;
+                EV_DoFloor(&junk,raiseToTexture);
+                return;
             }
         }
     }
-  else
+    else
     {
-      switch(gameepisode)
+        switch(_g->gameepisode)
         {
         case 1:
-          junk.tag = 666;
-          EV_DoFloor(&junk, lowerFloorToLowest);
-          return;
-          break;
+            junk.tag = 666;
+            EV_DoFloor(&junk, lowerFloorToLowest);
+            return;
 
         case 4:
-          switch(gamemap)
+            switch(_g->gamemap)
             {
             case 6:
-              junk.tag = 666;
-              EV_DoDoor(&junk, blazeOpen);
-              return;
-              break;
+                junk.tag = 666;
+                EV_DoDoor(&junk, blazeOpen);
+                return;
 
             case 8:
-              junk.tag = 666;
-              EV_DoFloor(&junk, lowerFloorToLowest);
-              return;
-              break;
+                junk.tag = 666;
+                EV_DoFloor(&junk, lowerFloorToLowest);
+                return;
             }
         }
     }
-  G_ExitLevel();
+    G_ExitLevel();
 }
 
 
@@ -2294,12 +1911,6 @@ void A_CloseShotgun2(player_t *player, pspdef_t *psp)
   A_ReFire(player,psp);
 }
 
-// killough 2/7/98: Remove limit on icon landings:
-mobj_t **braintargets;
-int    numbraintargets_alloc;
-int    numbraintargets;
-
-struct brain_s brain;   // killough 3/26/98: global state of boss brain
 
 // killough 3/26/98: initialize icon landings at level startup,
 // rather than at boss wakeup, to prevent savegame-related crashes
@@ -2309,9 +1920,9 @@ void P_SpawnBrainTargets(void)  // killough 3/26/98: renamed old function
   thinker_t *thinker;
 
   // find all the target spots
-  numbraintargets = 0;
-  brain.targeton = 0;
-  brain.easy = 0;           // killough 3/26/98: always init easy to 0
+  _g->numbraintargets = 0;
+  _g->brain.targeton = 0;
+  _g->brain.easy = 0;           // killough 3/26/98: always init easy to 0
 
   for (thinker = thinkercap.next ;
        thinker != &thinkercap ;
@@ -2322,11 +1933,11 @@ void P_SpawnBrainTargets(void)  // killough 3/26/98: renamed old function
 
         if (m->type == MT_BOSSTARGET )
           {   // killough 2/7/98: remove limit on icon landings:
-            if (numbraintargets >= numbraintargets_alloc)
-              braintargets = realloc(braintargets,
-                      (numbraintargets_alloc = numbraintargets_alloc ?
-                       numbraintargets_alloc*2 : 32) *sizeof *braintargets);
-            braintargets[numbraintargets++] = m;
+            if (_g->numbraintargets >= _g->numbraintargets_alloc)
+              _g->braintargets = Z_Realloc(_g->braintargets,
+                      (_g->numbraintargets_alloc = _g->numbraintargets_alloc ?
+                       _g->numbraintargets_alloc*2 : 32) *sizeof *_g->braintargets, PU_STATIC, NULL);
+            _g->braintargets[_g->numbraintargets++] = m;
           }
       }
 }
@@ -2347,11 +1958,11 @@ void A_BrainScream(mobj_t *mo)
   for (x=mo->x - 196*FRACUNIT ; x< mo->x + 320*FRACUNIT ; x+= FRACUNIT*8)
     {
       int y = mo->y - 320*FRACUNIT;
-      int z = 128 + P_Random(pr_brainscream)*2*FRACUNIT;
+      int z = 128 + P_Random()*2*FRACUNIT;
       mobj_t *th = P_SpawnMobj (x,y,z, MT_ROCKET);
-      th->momz = P_Random(pr_brainscream)*512;
+      th->momz = P_Random()*512;
       P_SetMobjState(th, S_BRAINEXPLODE1);
-      th->tics -= P_Random(pr_brainscream)&7;
+      th->tics -= P_Random()&7;
       if (th->tics < 1)
         th->tics = 1;
     }
@@ -2360,14 +1971,14 @@ void A_BrainScream(mobj_t *mo)
 
 void A_BrainExplode(mobj_t *mo)
 {  // killough 5/5/98: remove dependence on order of evaluation:
-  int t = P_Random(pr_brainexp);
-  int x = mo->x + (t - P_Random(pr_brainexp))*2048;
+  int t = P_Random();
+  int x = mo->x + (t - P_Random())*2048;
   int y = mo->y;
-  int z = 128 + P_Random(pr_brainexp)*2*FRACUNIT;
+  int z = 128 + P_Random()*2*FRACUNIT;
   mobj_t *th = P_SpawnMobj(x,y,z, MT_ROCKET);
-  th->momz = P_Random(pr_brainexp)*512;
+  th->momz = P_Random()*512;
   P_SetMobjState(th, S_BRAINEXPLODE1);
-  th->tics -= P_Random(pr_brainexp)&7;
+  th->tics -= P_Random()&7;
   if (th->tics < 1)
     th->tics = 1;
 }
@@ -2381,16 +1992,16 @@ void A_BrainSpit(mobj_t *mo)
 {
   mobj_t *targ, *newmobj;
 
-  if (!numbraintargets)     // killough 4/1/98: ignore if no targets
+  if (!_g->numbraintargets)     // killough 4/1/98: ignore if no targets
     return;
 
-  brain.easy ^= 1;          // killough 3/26/98: use brain struct
-  if (gameskill <= sk_easy && !brain.easy)
+  _g->brain.easy ^= 1;          // killough 3/26/98: use brain struct
+  if (_g->gameskill <= sk_easy && !_g->brain.easy)
     return;
 
   // shoot a cube at current target
-  targ = braintargets[brain.targeton++]; // killough 3/26/98:
-  brain.targeton %= numbraintargets;     // Use brain struct for targets
+  targ = _g->braintargets[_g->brain.targeton++]; // killough 3/26/98:
+  _g->brain.targeton %= _g->numbraintargets;     // Use brain struct for targets
 
   // spawn brain missile
   newmobj = P_SpawnMissile(mo, targ, MT_SPAWNSHOT);
@@ -2400,8 +2011,6 @@ void A_BrainSpit(mobj_t *mo)
   // killough 7/18/98: brain friendliness is transferred
   newmobj->flags = (newmobj->flags & ~MF_FRIEND) | (mo->flags & MF_FRIEND);
 
-  // killough 8/29/98: add to appropriate thread
-  P_UpdateThinker(&newmobj->thinker);
 
   S_StartSound(NULL, sfx_bospit);
 }
@@ -2431,7 +2040,7 @@ void A_SpawnFly(mobj_t *mo)
   S_StartSound(fog, sfx_telept);
 
   // Randomly select monster to spawn.
-  r = P_Random(pr_spawnfly);
+  r = P_Random();
 
   // Probability distribution (kind of :), decreasing likelihood.
   if ( r<50 )
@@ -2462,11 +2071,9 @@ void A_SpawnFly(mobj_t *mo)
   /* killough 7/18/98: brain friendliness is transferred */
   newmobj->flags = (newmobj->flags & ~MF_FRIEND) | (mo->flags & MF_FRIEND);
 
-  /* killough 8/29/98: add to appropriate thread */
-  P_UpdateThinker(&newmobj->thinker);
 
   if (P_LookForTargets(newmobj,true))      /* killough 9/4/98 */
-    P_SetMobjState(newmobj, newmobj->info->seestate);
+    P_SetMobjState(newmobj, mobjinfo[newmobj->type].seestate);
 
     // telefrag anything in this spot
   P_TeleportMove(newmobj, newmobj->x, newmobj->y, true); /* killough 8/9/98 */
@@ -2478,7 +2085,7 @@ void A_SpawnFly(mobj_t *mo)
 void A_PlayerScream(mobj_t *mo)
 {
   int sound = sfx_pldeth;  // Default death sound.
-  if (gamemode != shareware && mo->health < -50)
+  if (_g->gamemode != shareware && mo->health < -50)
     sound = sfx_pdiehi;   // IF THE PLAYER DIES LESS THAN -50% WITHOUT GIBBING
   S_StartSound(mo, sound);
 }
@@ -2498,7 +2105,7 @@ void A_Die(mobj_t *actor)
 
 void A_Detonate(mobj_t *mo)
 {
-  P_RadiusAttack(mo, mo->target, mo->info->damage);
+  P_RadiusAttack(mo, mo->target, mobjinfo[mo->type].damage);
 }
 
 //
@@ -2508,7 +2115,7 @@ void A_Detonate(mobj_t *mo)
 
 void A_Mushroom(mobj_t *actor)
 {
-  int i, j, n = actor->info->damage;
+  int i, j, n = mobjinfo[actor->type].damage;
 
   A_Explode(actor);  // First make normal explosion
 
@@ -2540,12 +2147,8 @@ void A_Spawn(mobj_t *mo)
 {
   if (mo->state->misc1)
     {
-      /* mobj_t *newmobj = */
       P_SpawnMobj(mo->x, mo->y, (mo->state->misc2 << FRACBITS) + mo->z,
       mo->state->misc1 - 1);
-      /* CPhipps - no friendlyness (yet)
-   newmobj->flags = (newmobj->flags & ~MF_FRIEND) | (mo->flags & MF_FRIEND);
-      */
     }
 }
 
@@ -2573,29 +2176,7 @@ void A_PlaySound(mobj_t *mo)
 
 void A_RandomJump(mobj_t *mo)
 {
-  if (P_Random(pr_randomjump) < mo->state->misc2)
+  if (P_Random() < mo->state->misc2)
     P_SetMobjState(mo, mo->state->misc1);
 }
 
-//
-// This allows linedef effects to be activated inside deh frames.
-//
-
-void A_LineEffect(mobj_t *mo)
-{
-  static line_t junk;
-  player_t player;
-  player_t *oldplayer;
-  junk = *lines;
-  oldplayer = mo->player;
-  mo->player = &player;
-  player.health = 100;
-  junk.special = (short)mo->state->misc1;
-  if (!junk.special)
-    return;
-  junk.tag = (short)mo->state->misc2;
-  if (!P_UseSpecialLine(mo, &junk, 0))
-    P_CrossSpecialLine(&junk, 0, mo);
-  mo->state->misc1 = junk.special;
-  mo->player = oldplayer;
-}

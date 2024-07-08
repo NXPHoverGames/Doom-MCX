@@ -48,56 +48,27 @@ struct sfxinfo_struct {
   // up to 6-character name
   const char *name; // CPhipps - const
 
-  // Sfx singularity (only one at a time)
   int singularity;
 
   // Sfx priority
   int priority;
 
   // referenced sound if a link
-  sfxinfo_t *link;
-
-  // pitch if a link
-  int pitch;
+  const sfxinfo_t *link;
 
   // volume if a link
   int volume;
 
-  // sound data
-  void *data;
-
-  // this is checked every second to see if sound
-  // can be thrown out (if 0, then decrement, if -1,
-  // then throw out, if > 0, then it is in use)
-  int usefulness;
-
-  // lump number of sfx
-  int lumpnum;
+  //Length of clip
+  int ticks;
 };
 
 //
 // MusicInfo struct.
 //
 
-typedef struct {
-  // up to 6-character name
-  const char *name; // CPhipps - const
-
-  // lump number of music
-  int lumpnum;
-
-  /* music data - cphipps 4/11 made const void* */
-  const void *data;
-
-  // music handle once registered
-  int handle;
-} musicinfo_t;
-
 // the complete set of sound effects
-extern sfxinfo_t    S_sfx[];
-
-// the complete set of music
-extern musicinfo_t  S_music[];
+extern const sfxinfo_t    S_sfx[];
 
 //
 // Identifiers for all music in game.
@@ -289,16 +260,6 @@ typedef enum {
   sfx_skesit,
   sfx_skeatk,
   sfx_radio,
-
-#ifdef DOGS
-  /* killough 11/98: dog sounds */
-  sfx_dgsit,
-  sfx_dgatk,
-  sfx_dgact,
-  sfx_dgdth,
-  sfx_dgpain,
-#endif
-
   NUMSFX
 } sfxenum_t;
 

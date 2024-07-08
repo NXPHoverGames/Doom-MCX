@@ -61,22 +61,21 @@ typedef unsigned char byte;
 /* cph - Wrapper for the long long type, as Win32 used a different name.
  * Except I don't know what to test as it's compiler specific
  * Proff - I fixed it */
-#ifndef _MSC_VER
-typedef signed long long int_64_t;
-typedef unsigned long long uint_64_t;
-// define compiled-specific long-long contstant notation here
-#define LONGLONG(num)   (uint_64_t)num ## ll
+
+#ifdef __WINS__
+	#define int_64_t  __int64
+	#define uint_64_t unsigned __int64
 #else
-typedef __int64 int_64_t;
-typedef unsigned __int64 uint_64_t;
+	#define int_64_t  long long
+	#define uint_64_t unsigned long long
+#endif
+
+//typedef _int64 int_64_t;
+//typedef unsigned _int64 uint_64_t;
 // define compiled-specific long-long contstant notation here
 #define LONGLONG(num) (uint_64_t)num
 #undef PATH_MAX
 #define PATH_MAX 1024
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
-#define S_ISDIR(x) (((sbuf.st_mode & S_IFDIR)==S_IFDIR)?1:0)
-#endif
 
 #ifdef __GNUC__
 #define CONSTFUNC __attribute__((const))
@@ -90,32 +89,6 @@ typedef unsigned __int64 uint_64_t;
 
 /* CPhipps - use limits.h instead of depreciated values.h */
 #include <limits.h>
-
-/* cph - move compatibility levels here so we can use them in d_server.c */
-typedef enum {
-  doom_12_compatibility,   /* Doom v1.2 */
-  doom_1666_compatibility, /* Doom v1.666 */
-  doom2_19_compatibility,  /* Doom & Doom 2 v1.9 */
-  ultdoom_compatibility,   /* Doom 2 v1.9 */
-  finaldoom_compatibility,     /* Final & Ultimate Doom v1.9, and Doom95 */
-  dosdoom_compatibility,     /* Early dosdoom & tasdoom */
-  tasdoom_compatibility,     /* Early dosdoom & tasdoom */
-  boom_compatibility_compatibility,      /* Boom's compatibility mode */
-  boom_201_compatibility,                /* Compatible with Boom v2.01 */
-  boom_202_compatibility,                /* Compatible with Boom v2.01 */
-  lxdoom_1_compatibility,                /* LxDoom v1.3.2+ */
-  mbf_compatibility,                     /* MBF */
-  prboom_1_compatibility,                /* PrBoom 2.03beta? */
-  prboom_2_compatibility,                /* PrBoom 2.1.0-2.1.1 */
-  prboom_3_compatibility,                /* PrBoom 2.2.x */
-  prboom_4_compatibility,                /* PrBoom 2.3.x */
-  prboom_5_compatibility,                /* PrBoom 2.4.0 */
-  prboom_6_compatibility,                /* Latest PrBoom */
-  MAX_COMPATIBILITY_LEVEL,               /* Must be last entry */
-  /* Aliases follow */
-  boom_compatibility = boom_201_compatibility, /* Alias used by G_Compatibility */
-  best_compatibility = prboom_6_compatibility,
-} complevel_t;
 
 /* cph - from v_video.h, needed by gl_struct.h */
 enum patch_translation_e {

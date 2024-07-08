@@ -39,9 +39,9 @@
 #include "st_lib.h"
 #include "r_main.h"
 #include "lprintf.h"
+#include "global_data.h"
 
-int sts_always_red;      //jff 2/18/98 control to disable status color changes
-int sts_pct_always_gray; // killough 2/21/98: always gray %'s? bug or feature?
+#include "gba_functions.h"
 
 //
 // STlib_init()
@@ -61,10 +61,10 @@ void STlib_init(void)
 // Returns nothing
 //
 void STlib_initNum
-( st_number_t* n,
+(st_number_t* n,
   int x,
   int y,
-  const patchnum_t* pl,
+  const patch_t **pl,
   int* num,
   boolean* on,
   int     width )
@@ -100,19 +100,10 @@ static void STlib_drawNum
   int   numdigits = n->width;
   int   num = *n->num;
 
-  int   w = n->p[0].width;
-  int   h = n->p[0].height;
+  int   w = n->p[0]->width;
   int   x = n->x;
 
   int   neg;
-
-  // leban 1/20/99:
-  // strange that somebody went through all the work to draw only the
-  // differences, and then went and constantly redrew all the numbers.
-  // return without drawing if the number didn't change and the bar
-  // isn't refreshing.
-  if(n->oldnum == num && !refresh)
-    return;
 
   // CPhipps - compact some code, use num instead of *n->num
   if ((neg = (n->oldnum = num) < 0))
@@ -128,13 +119,6 @@ static void STlib_drawNum
   // clear the area
   x = n->x - numdigits*w;
 
-#ifdef RANGECHECK
-  if (n->y - ST_Y < 0)
-    I_Error("STlib_drawNum: n->y - ST_Y < 0");
-#endif
-
-  V_CopyRect(x, n->y - ST_Y, BG, w*numdigits, h, x, n->y, FG, VPT_STRETCH);
-
   // if non-number, do not draw it
   if (num == 1994)
     return;
@@ -145,25 +129,17 @@ static void STlib_drawNum
   // in the special case of 0, you draw 0
   if (!num)
     // CPhipps - patch drawing updated, reformatted
-    V_DrawNumPatch(x - w, n->y, FG, n->p[0].lumpnum, cm,
-       (((cm!=CR_DEFAULT) && !sts_always_red) ? VPT_TRANS : VPT_NONE) | VPT_STRETCH);
+    V_DrawPatchNoScale(x - w, n->y, n->p[0]);
 
   // draw the new number
   //jff 2/16/98 add color translation to digit output
-  while (num && numdigits--) {
+  while (num && numdigits--)
+  {
     // CPhipps - patch drawing updated, reformatted
     x -= w;
-    V_DrawNumPatch(x, n->y, FG, n->p[num % 10].lumpnum, cm,
-       (((cm!=CR_DEFAULT) && !sts_always_red) ? VPT_TRANS : VPT_NONE) | VPT_STRETCH);
+    V_DrawPatchNoScale(x, n->y, n->p[num % 10]);
     num /= 10;
   }
-
-  // draw a minus sign if necessary
-  //jff 2/16/98 add color translation to digit output
-  // cph - patch drawing updated, load by name instead of acquiring pointer earlier
-  if (neg)
-    V_DrawNamePatch(x - w, n->y, FG, "STTMINUS", cm,
-       (((cm!=CR_DEFAULT) && !sts_always_red) ? VPT_TRANS : VPT_NONE) | VPT_STRETCH);
 }
 
 /*
@@ -196,13 +172,13 @@ void STlib_updateNum
 // Returns nothing.
 //
 void STlib_initPercent
-( st_percent_t* p,
+(st_percent_t* p,
   int x,
   int y,
-  const patchnum_t* pl,
+  const patch_t** pl,
   int* num,
   boolean* on,
-  const patchnum_t* percent )
+  const patch_t *percent )
 {
   STlib_initNum(&p->n, x, y, pl, num, on, 3);
   p->p = percent;
@@ -220,21 +196,10 @@ void STlib_initPercent
  * cphipps - const for pointer to the colour translation table
  */
 
-void STlib_updatePercent
-( st_percent_t*   per,
-  int cm,
-  int refresh )
+void STlib_updatePercent(st_percent_t* per, int cm, int refresh)
 {
-  if (*per->n.on && (refresh || (per->n.oldnum != *per->n.num))) {
-    // killough 2/21/98: fix percents not updated;
-    /* CPhipps - make %'s only be updated if number changed */
-    // CPhipps - patch drawing updated
-    V_DrawNumPatch(per->n.x, per->n.y, FG, per->p->lumpnum,
-       sts_pct_always_gray ? CR_GRAY : cm,
-       (sts_always_red ? VPT_NONE : VPT_TRANS) | VPT_STRETCH);
-  }
-
-  STlib_updateNum(&per->n, cm, refresh);
+    STlib_updateNum(&per->n, cm, refresh);
+    //V_DrawPatchNoScale(per->n.x, per->n.y, per->p); - Percentage is in the GBA Doom II Hud graphic ~Kippykip
 }
 
 //
@@ -248,10 +213,10 @@ void STlib_updatePercent
 // Returns nothing.
 //
 void STlib_initMultIcon
-( st_multicon_t* i,
+(st_multicon_t* i,
   int x,
   int y,
-  const patchnum_t* il,
+  const patch_t **il,
   int* inum,
   boolean* on )
 {
@@ -277,31 +242,14 @@ void STlib_updateMultIcon
 ( st_multicon_t*  mi,
   boolean   refresh )
 {
-  int w;
-  int h;
-  int x;
-  int y;
+    if(!mi->p)
+        return;
 
-  if (*mi->on && (mi->oldinum != *mi->inum || refresh))
-  {
-    if (mi->oldinum != -1)
-    {
-      x = mi->x - mi->p[mi->oldinum].leftoffset;
-      y = mi->y - mi->p[mi->oldinum].topoffset;
-      w = mi->p[mi->oldinum].width;
-      h = mi->p[mi->oldinum].height;
-
-#ifdef RANGECHECK
-      if (y - ST_Y < 0)
-        I_Error("STlib_updateMultIcon: y - ST_Y < 0");
-#endif
-
-      V_CopyRect(x, y-ST_Y, BG, w, h, x, y, FG, VPT_STRETCH);
-    }
     if (*mi->inum != -1)  // killough 2/16/98: redraw only if != -1
-      V_DrawNumPatch(mi->x, mi->y, FG, mi->p[*mi->inum].lumpnum, CR_DEFAULT, VPT_STRETCH);
+		V_DrawPatchNoScale(mi->x, mi->y, mi->p[*mi->inum]);
+
     mi->oldinum = *mi->inum;
-  }
+
 }
 
 //
@@ -318,7 +266,7 @@ void STlib_initBinIcon
 ( st_binicon_t* b,
   int x,
   int y,
-  const patchnum_t* i,
+  const patch_t* i,
   boolean* val,
   boolean* on )
 {
@@ -347,28 +295,21 @@ void STlib_updateBinIcon
 ( st_binicon_t*   bi,
   boolean   refresh )
 {
-  int     x;
-  int     y;
-  int     w;
-  int     h;
+    if (*bi->on && (bi->oldval != *bi->val || refresh))
+    {
+        if (*bi->val)
+            V_DrawPatch(bi->x, bi->y, ST_FG, bi->p);
 
-  if (*bi->on && (bi->oldval != *bi->val || refresh))
-  {
-    x = bi->x - bi->p->leftoffset;
-    y = bi->y - bi->p->topoffset;
-    w = bi->p->width;
-    h = bi->p->height;
+        bi->oldval = *bi->val;
+    }
+}
 
-#ifdef RANGECHECK
-    if (y - ST_Y < 0)
-      I_Error("STlib_updateBinIcon: y - ST_Y < 0");
-#endif
+void ST_refreshBackground(void)
+{
+    if (_g->st_statusbaron)
+    {
+        const unsigned int st_offset = ((SCREENHEIGHT-ST_SCALED_HEIGHT)*120);
 
-    if (*bi->val)
-      V_DrawNumPatch(bi->x, bi->y, FG, bi->p->lumpnum, CR_DEFAULT, VPT_STRETCH);
-    else
-      V_CopyRect(x, y-ST_Y, BG, w, h, x, y, FG, VPT_STRETCH);
-
-    bi->oldval = *bi->val;
-  }
+        CpuBlockCopy(&_g->screens[0].data[st_offset], _g->stbarbg, _g->stbar_len);
+    }
 }

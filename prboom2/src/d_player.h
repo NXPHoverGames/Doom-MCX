@@ -82,7 +82,10 @@ typedef enum
   // No damage, no health loss.
   CF_GODMODE          = 2,
   // Not really a cheat, just a debug aid.
-  CF_NOMOMENTUM       = 4
+  CF_NOMOMENTUM       = 4,
+
+  //You played goldeneye right?
+  CF_ENEMY_ROCKETS    = 8
 
 } cheat_t;
 
@@ -127,13 +130,12 @@ typedef struct player_s
   boolean             backpack;
 
   // Frags, kills of other players.
-  int                 frags[MAXPLAYERS];
   weapontype_t        readyweapon;
 
   // Is wp_nochange if not changing.
   weapontype_t        pendingweapon;
 
-  boolean             weaponowned[NUMWEAPONS];
+  int                 weaponowned[NUMWEAPONS];
   int                 ammo[NUMAMMO];
   int                 maxammo[NUMAMMO];
 
@@ -196,9 +198,6 @@ typedef struct
   int         sitems;
   int         ssecret;
   int         stime;
-  int         frags[4];
-  int         score;  // current score on entry, modified on return
-
 } wbplayerstruct_t;
 
 typedef struct
@@ -215,7 +214,6 @@ typedef struct
   int         maxkills;
   int         maxitems;
   int         maxsecret;
-  int         maxfrags;
 
   // the par time
   int         partime;

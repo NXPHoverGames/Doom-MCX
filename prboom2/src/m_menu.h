@@ -67,19 +67,9 @@ void M_Init (void);
 
 void M_StartControlPanel (void);
 
-void M_ForcedLoadGame(const char *msg); // killough 5/15/98: forced loadgames
-
-void M_Trans(void);          // killough 11/98: reset translucency
-
 void M_ResetMenu(void);      // killough 11/98: reset main menu ordering
 
 void M_DrawCredits(void);    // killough 11/98
-
-/* killough 8/15/98: warn about changes not being committed until next game */
-#define warn_about_changes(x) (warning_about_changes=(x), \
-             print_warning_about_changes = 2)
-
-extern int warning_about_changes, print_warning_about_changes;
 
 /****************************
  *
@@ -126,57 +116,36 @@ extern int warning_about_changes, print_warning_about_changes;
 
 #define S_HASDEFPTR (S_STRING|S_YESNO|S_NUM|S_WEAP|S_COLOR|S_CRITEM|S_CHOICE)
 
-/****************************
- *
- * The setup_group enum is used to show which 'groups' keys fall into so
- * that you can bind a key differently in each 'group'.
- */
 
-typedef enum {
-  m_null,       // Has no meaning; not applicable
-  m_scrn,       // A key can not be assigned to more than one action
-  m_map,        // in the same group. A key can be assigned to one
-  m_menu,       // action in one group, and another action in another.
-} setup_group;
+#define SAVESTRINGSIZE  8
 
-/****************************
- *
- * phares 4/17/98:
- * State definition for each item.
- * This is the definition of the structure for each setup item. Not all
- * fields are used by all items.
- *
- * A setup screen is defined by an array of these items specific to
- * that screen.
- *
- * killough 11/98:
- *
- * Restructured to allow simpler table entries,
- * and to Xref with defaults[] array in m_misc.c.
- * Moved from m_menu.c to m_menu.h so that m_misc.c can use it.
- */
+//
+// MENU TYPEDEFS
+//
 
-typedef struct setup_menu_s
+typedef struct
 {
-  const char  *m_text;  /* text to display */
-  int         m_flags;  /* phares 4/17/98: flag bits S_* (defined above) */
-  setup_group m_group;  /* Group */
-  short       m_x;      /* screen x position (left is 0) */
-  short       m_y;      /* screen y position (top is 0) */
+  short status; // 0 = no cursor here, 1 = ok, 2 = arrows ok
+  char  name[10];
 
-  union  /* killough 11/98: The first field is a union of several types */
-  {
-    const void          *var;   /* generic variable */
-    int                 *m_key; /* key value, or 0 if not shown */
-    const char          *name;  /* name */
-    struct default_s    *def;   /* default[] table entry */
-    struct setup_menu_s *menu;  /* next or prev menu */
-  } var;
+  // choice = menu item #.
+  // if status = 2,
+  //   choice=0:leftarrow,1:rightarrow
+  void  (*routine)(int choice);
+} menuitem_t;
 
-  int         *m_mouse; /* mouse button value, or 0 if not shown */
-  int         *m_joy;   /* joystick button value, or 0 if not shown */
-  void (*action)(void); /* killough 10/98: function to call after changing */
-  const char **selectstrings; /* list of strings for choice value */
-} setup_menu_t;
+typedef struct menu_s
+{
+  short           numitems;     // # of menu items
+  const menuitem_t* menuitems;    // menu items
+  void            (*routine)(); // draw routine
+  short           x;
+  short           y;            // x,y of menu
+  const struct menu_s*	prevMenu;	// previous menu
+  short previtemOn;
+} menu_t;
+
+
+
 
 #endif

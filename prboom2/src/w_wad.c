@@ -39,10 +39,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef _MSC_VER
-#include <stddef.h>
-#include <io.h>
-#endif
+
 #include <fcntl.h>
 
 #include "doomstat.h"
@@ -50,62 +47,44 @@
 #include "doomtype.h"
 #include "i_system.h"
 
+#include "doom_iwad.h"
+
 #ifdef __GNUG__
 #pragma implementation "w_wad.h"
 #endif
 #include "w_wad.h"
 #include "lprintf.h"
 
+#include "global_data.h"
+
 //
 // GLOBALS
 //
-
-// Location of each lump on disk.
-lumpinfo_t *lumpinfo;
-int        numlumps;         // killough
-
 void ExtractFileBase (const char *path, char *dest)
 {
-  const char *src = path + strlen(path) - 1;
-  int length;
+    const char *src = path + strlen(path) - 1;
+    int length;
 
-  // back up until a \ or the start
-  while (src != path && src[-1] != ':' // killough 3/22/98: allow c:filename
-         && *(src-1) != '\\'
-         && *(src-1) != '/')
-  {
-    src--;
-  }
+    // back up until a \ or the start
+    while (src != path && src[-1] != ':' // killough 3/22/98: allow c:filename
+           && *(src-1) != '\\'
+           && *(src-1) != '/')
+    {
+        src--;
+    }
 
-  // copy up to eight characters
-  memset(dest,0,8);
-  length = 0;
+    // copy up to eight characters
+    memset(dest,0,8);
+    length = 0;
 
-  while ((*src) && (*src != '.') && (++length<9))
-  {
-    *dest++ = toupper(*src);
-    *src++;
-  }
-  /* cph - length check removed, just truncate at 8 chars.
+    while ((*src) && (*src != '.') && (++length<9))
+    {
+        *dest++ = toupper(*src);
+        src++;
+    }
+    /* cph - length check removed, just truncate at 8 chars.
    * If there are 8 or more chars, we'll copy 8, and no zero termination
    */
-}
-
-//
-// 1/18/98 killough: adds a default extension to a path
-// Note: Backslashes are treated specially, for MS-DOS.
-//
-
-char *AddDefaultExtension(char *path, const char *ext)
-{
-  char *p = path;
-  while (*p++);
-  while (p-->path && *p!='/' && *p!='\\')
-    if (*p=='.')
-      return path;
-  if (*ext!='.')
-    strcat(path,".");
-  return strcat(path,ext);
 }
 
 //
@@ -125,173 +104,80 @@ char *AddDefaultExtension(char *path, const char *ext)
 // CPhipps - source is an enum
 //
 // proff - changed using pointer to wadfile_info_t
-static void W_AddFile(wadfile_info_t *wadfile) 
-// killough 1/31/98: static, const
+static void W_AddFile()
 {
-  wadinfo_t   header;
-  lumpinfo_t* lump_p;
-  unsigned    i;
-  int         length;
-  int         startlump;
-  filelump_t  *fileinfo, *fileinfo2free=NULL; //killough
-  filelump_t  singleinfo;
+    const wadinfo_t* header;
 
-  // open the file and add to directory
-
-  wadfile->handle = open(wadfile->name,O_RDONLY | O_BINARY);
-
-#ifdef HAVE_NET
-  if (wadfile->handle == -1 && D_NetGetWad(wadfile->name)) // CPhipps
-    wadfile->handle = open(wadfile->name,O_RDONLY | O_BINARY);
-#endif
-    
-  if (wadfile->handle == -1) 
+    if(doom_iwad_len > 0)
     {
-      if (  strlen(wadfile->name)<=4 ||      // add error check -- killough
-	         (strcasecmp(wadfile->name+strlen(wadfile->name)-4 , ".lmp" ) &&
-	          strcasecmp(wadfile->name+strlen(wadfile->name)-4 , ".gwa" ) )
-         )
-	I_Error("W_AddFile: couldn't open %s",wadfile->name);
-      return;
+        header = (wadinfo_t*)&doom_iwad[0];
+
+        if (strncmp(header->identification,"IWAD",4))
+            I_Error("W_AddFile: Wad file doesn't have IWAD id");
     }
-
-  //jff 8/3/98 use logical output routine
-  lprintf (LO_INFO," adding %s\n",wadfile->name);
-  startlump = numlumps;
-
-  if (  strlen(wadfile->name)<=4 || 
-	      (
-          strcasecmp(wadfile->name+strlen(wadfile->name)-4,".wad") && 
-	        strcasecmp(wadfile->name+strlen(wadfile->name)-4,".gwa")
-        )
-     )
-    {
-      // single lump file
-      fileinfo = &singleinfo;
-      singleinfo.filepos = 0;
-      singleinfo.size = LONG(I_Filelength(wadfile->handle));
-      ExtractFileBase(wadfile->name, singleinfo.name);
-      numlumps++;
-    }
-  else
-    {
-      // WAD file
-      I_Read(wadfile->handle, &header, sizeof(header));
-      if (strncmp(header.identification,"IWAD",4) &&
-          strncmp(header.identification,"PWAD",4))
-        I_Error("W_AddFile: Wad file %s doesn't have IWAD or PWAD id", wadfile->name);
-      header.numlumps = LONG(header.numlumps);
-      header.infotableofs = LONG(header.infotableofs);
-      length = header.numlumps*sizeof(filelump_t);
-      fileinfo2free = fileinfo = malloc(length);    // killough
-      lseek(wadfile->handle, header.infotableofs, SEEK_SET);
-      I_Read(wadfile->handle, fileinfo, length);
-      numlumps += header.numlumps;
-    }
-
-    // Fill in lumpinfo
-    lumpinfo = realloc(lumpinfo, numlumps*sizeof(lumpinfo_t));
-
-    lump_p = &lumpinfo[startlump];
-
-    for (i=startlump ; (int)i<numlumps ; i++,lump_p++, fileinfo++)
-      {
-        lump_p->wadfile = wadfile;                    //  killough 4/25/98
-        lump_p->position = LONG(fileinfo->filepos);
-        lump_p->size = LONG(fileinfo->size);
-        lump_p->li_namespace = ns_global;              // killough 4/17/98
-        strncpy (lump_p->name, fileinfo->name, 8);
-	lump_p->source = wadfile->src;                    // Ty 08/29/98
-      }
-
-    free(fileinfo2free);      // killough
 }
 
-// jff 1/23/98 Create routines to reorder the master directory
-// putting all flats into one marked block, and all sprites into another.
-// This will allow loading of sprites and flats from a PWAD with no
-// other changes to code, particularly fast hashes of the lumps.
-//
-// killough 1/24/98 modified routines to be a little faster and smaller
+//Return -1 if not found.
+//Set lump ptr if found.
 
-static int IsMarker(const char *marker, const char *name)
+static int PUREFUNC FindLumpByName(const char* name, const filelump_t** lump)
 {
-  return !strncasecmp(name, marker, 8) ||
-    (*name == *marker && !strncasecmp(name+1, marker, 7));
-}
+    const wadinfo_t* header;
+    const filelump_t  *fileinfo;
 
-// killough 4/17/98: add namespace tags
+    if(doom_iwad_len > 0)
+    {
+        header = (const wadinfo_t*)&doom_iwad[0];
 
-static void W_CoalesceMarkedResource(const char *start_marker,
-                                     const char *end_marker, int li_namespace)
-{
-  lumpinfo_t *marked = malloc(sizeof(*marked) * numlumps);
-  size_t i, num_marked = 0, num_unmarked = 0;
-  int is_marked = 0, mark_end = 0;
-  lumpinfo_t *lump = lumpinfo;
+        fileinfo = (filelump_t*)&doom_iwad[header->infotableofs];
 
-  for (i=numlumps; i--; lump++)
-    if (IsMarker(start_marker, lump->name))       // start marker found
-      { // If this is the first start marker, add start marker to marked lumps
-        if (!num_marked)
-          {
-            strncpy(marked->name, start_marker, 8);
-            marked->size = 0;  // killough 3/20/98: force size to be 0
-            marked->li_namespace = ns_global;        // killough 4/17/98
-            marked->wadfile = NULL;
-            num_marked = 1;
-          }
-        is_marked = 1;                            // start marking lumps
-      }
-    else
-      if (IsMarker(end_marker, lump->name))       // end marker found
+        int_64_t nameint = 0;
+        strncpy((char*)&nameint, name, 8);
+
+        for(int i = header->numlumps - 1; i >= 0; i--)
         {
-          mark_end = 1;                           // add end marker below
-          is_marked = 0;                          // stop marking lumps
+            //This is a bit naughty with alignment.
+            //For x86 doesn't matter because unaligned loads
+            //are fine.
+            //On ARM, unaligned loads are not fine but since it
+            //doesn't have a 64bit load, the compiler will generate
+            //32 bit loads. These vars are 32 aligned.
+
+            int_64_t nameint2 = *(int_64_t*)fileinfo[i].name;
+
+            if(nameint == nameint2)
+            {
+                *lump = &fileinfo[i];
+                return i;
+            }
         }
-      else
-        if (is_marked)                            // if we are marking lumps,
-          {                                       // move lump to marked list
-            marked[num_marked] = *lump;
-            marked[num_marked++].li_namespace = li_namespace;  // killough 4/17/98
-          }
-        else
-          lumpinfo[num_unmarked++] = *lump;       // else move down THIS list
-
-  // Append marked list to end of unmarked list
-  memcpy(lumpinfo + num_unmarked, marked, num_marked * sizeof(*marked));
-
-  free(marked);                                   // free marked list
-
-  numlumps = num_unmarked + num_marked;           // new total number of lumps
-
-  if (mark_end)                                   // add end marker
-    {
-      lumpinfo[numlumps].size = 0;  // killough 3/20/98: force size to be 0
-      lumpinfo[numlumps].wadfile = NULL;
-      lumpinfo[numlumps].li_namespace = ns_global;   // killough 4/17/98
-      strncpy(lumpinfo[numlumps++].name, end_marker, 8);
     }
+
+    *lump = NULL;
+    return -1;
 }
 
-// Hash function used for lump names.
-// Must be mod'ed with table size.
-// Can be used for any 8-character names.
-// by Lee Killough
-
-unsigned W_LumpNameHash(const char *s)
+static const filelump_t* PUREFUNC FindLumpByNum(int num)
 {
-  unsigned hash;
-  (void) ((hash =        toupper(s[0]), s[1]) &&
-          (hash = hash*3+toupper(s[1]), s[2]) &&
-          (hash = hash*2+toupper(s[2]), s[3]) &&
-          (hash = hash*2+toupper(s[3]), s[4]) &&
-          (hash = hash*2+toupper(s[4]), s[5]) &&
-          (hash = hash*2+toupper(s[5]), s[6]) &&
-          (hash = hash*2+toupper(s[6]),
-           hash = hash*2+toupper(s[7]))
-         );
-  return hash;
+    const wadinfo_t* header;
+    const filelump_t  *fileinfo;
+
+    if(num < 0)
+        return NULL;
+
+    if(doom_iwad_len > 0)
+    {
+        header = (const wadinfo_t*)&doom_iwad[0];
+
+        if(num >= header->numlumps)
+            return NULL;
+
+        fileinfo = (const filelump_t*)&doom_iwad[header->infotableofs];
+
+        return &fileinfo[num];
+    }
+
+    return NULL;
 }
 
 //
@@ -313,65 +199,36 @@ unsigned W_LumpNameHash(const char *s)
 // between different resources such as flats, sprites, colormaps
 //
 
-int (W_CheckNumForName)(register const char *name, register int li_namespace)
+int PUREFUNC W_CheckNumForName(const char *name)
 {
-  // Hash function maps the name to one of possibly numlump chains.
-  // It has been tuned so that the average chain length never exceeds 2.
+    const filelump_t* lump = NULL;
 
-  // proff 2001/09/07 - check numlumps==0, this happens when called before WAD loaded
-  register int i = (numlumps==0)?(-1):(lumpinfo[W_LumpNameHash(name) % (unsigned) numlumps].index);
-
-  // We search along the chain until end, looking for case-insensitive
-  // matches which also match a namespace tag. Separate hash tables are
-  // not used for each namespace, because the performance benefit is not
-  // worth the overhead, considering namespace collisions are rare in
-  // Doom wads.
-
-  while (i >= 0 && (strncasecmp(lumpinfo[i].name, name, 8) ||
-                    lumpinfo[i].li_namespace != li_namespace))
-    i = lumpinfo[i].next;
-
-  // Return the matching lump, or -1 if none found.
-
-  return i;
+    return FindLumpByName(name, &lump);
 }
-
-//
-// killough 1/31/98: Initialize lump hash table
-//
-
-void W_HashLumps(void)
-{
-  int i;
-
-  for (i=0; i<numlumps; i++)
-    lumpinfo[i].index = -1;                     // mark slots empty
-
-  // Insert nodes to the beginning of each chain, in first-to-last
-  // lump order, so that the last lump of a given name appears first
-  // in any chain, observing pwad ordering rules. killough
-
-  for (i=0; i<numlumps; i++)
-    {                                           // hash function:
-      int j = W_LumpNameHash(lumpinfo[i].name) % (unsigned) numlumps;
-      lumpinfo[i].next = lumpinfo[j].index;     // Prepend to list
-      lumpinfo[j].index = i;
-    }
-}
-
-// End of lump hashing -- killough 1/31/98
-
-
 
 // W_GetNumForName
 // Calls W_CheckNumForName, but bombs out if not found.
 //
-int W_GetNumForName (const char* name)     // killough -- const added
+int PUREFUNC W_GetNumForName(const char* name)     // killough -- const added
 {
-  int i = W_CheckNumForName (name);
-  if (i == -1)
-    I_Error("W_GetNumForName: %.8s not found", name);
-  return i;
+    int i = W_CheckNumForName (name);
+
+    if (i == -1)
+        I_Error("W_GetNumForName: %.8s not found", name);
+
+    return i;
+}
+
+const char* PUREFUNC W_GetNameForNum(int lump)
+{
+    const filelump_t* l = FindLumpByNum(lump);
+
+    if(l)
+    {
+        return l->name;
+    }
+
+    return NULL;
 }
 
 
@@ -390,87 +247,46 @@ int W_GetNumForName (const char* name)     // killough -- const added
 //
 // CPhipps - modified to use the new wadfiles array
 //
-wadfile_info_t *wadfiles=NULL;
-
-size_t numwadfiles = 0; // CPhipps - size of the wadfiles array (dynamic, no limit)
 
 void W_Init(void)
 {
-  // CPhipps - start with nothing
+    // CPhipps - start with nothing
 
-  numlumps = 0; lumpinfo = NULL;
-
-  { // CPhipps - new wadfiles array used 
-    // open all the files, load headers, and count lumps
-    int i;
-    for (i=0; (size_t)i<numwadfiles; i++)
-      W_AddFile(&wadfiles[i]);
-  }
-
-  if (!numlumps)
-    I_Error ("W_Init: No files found");
-
-  //jff 1/23/98
-  // get all the sprites and flats into one marked block each
-  // killough 1/24/98: change interface to use M_START/M_END explicitly
-  // killough 4/17/98: Add namespace tags to each entry
-  // killough 4/4/98: add colormap markers
-  W_CoalesceMarkedResource("S_START", "S_END", ns_sprites);
-  W_CoalesceMarkedResource("F_START", "F_END", ns_flats);
-  W_CoalesceMarkedResource("C_START", "C_END", ns_colormaps);
-  W_CoalesceMarkedResource("B_START", "B_END", ns_prboom);
-
-  // killough 1/31/98: initialize lump hash table
-  W_HashLumps();
-
-  /* cph 2001/07/07 - separated cache setup */
-  lprintf(LO_INFO,"W_InitCache\n");
-  W_InitCache();
-}
-
-void W_ReleaseAllWads(void)
-{
-	W_DoneCache();
-	numwadfiles = 0;
-	free(wadfiles);
-	wadfiles = NULL;
-	numlumps = 0;
-	free(lumpinfo);
-	lumpinfo = NULL;
+    W_AddFile();
 }
 
 //
 // W_LumpLength
 // Returns the buffer size needed to load the given lump.
 //
-int W_LumpLength (int lump)
+
+int PUREFUNC W_LumpLength(int lump)
 {
-  if (lump >= numlumps)
-    I_Error ("W_LumpLength: %i >= numlumps",lump);
-  return lumpinfo[lump].size;
-}
+    const filelump_t* l = FindLumpByNum(lump);
 
-//
-// W_ReadLump
-// Loads the lump into the given buffer,
-//  which must be >= W_LumpLength().
-//
-
-void W_ReadLump(int lump, void *dest)
-{
-  lumpinfo_t *l = lumpinfo + lump;
-
-#ifdef RANGECHECK
-  if (lump >= numlumps)
-    I_Error ("W_ReadLump: %i >= numlumps",lump);
-#endif
-
+    if(l)
     {
-      if (l->wadfile)
-      {
-        lseek(l->wadfile->handle, l->position, SEEK_SET);
-        I_Read(l->wadfile->handle, dest, l->size);
-      }
+        return l->size;
     }
+
+    I_Error ("W_LumpLength: %i >= numlumps",lump);
+
+    return 0;
 }
 
+static const void* PUREFUNC W_GetLumpPtr(int lump)
+{
+    const filelump_t* l = FindLumpByNum(lump);
+
+    if(l)
+    {
+        return (const void*)&doom_iwad[l->filepos];
+    }
+
+    return NULL;
+}
+
+const void* PUREFUNC W_CacheLumpNum(int lump)
+{
+    return W_GetLumpPtr(lump);
+}

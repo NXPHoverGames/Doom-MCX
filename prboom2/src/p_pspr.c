@@ -42,7 +42,8 @@
 #include "s_sound.h"
 #include "sounds.h"
 #include "d_event.h"
-#include "r_demo.h"
+
+#include "global_data.h"
 
 #define LOWERSPEED   (FRACUNIT*6)
 #define RAISESPEED   (FRACUNIT*6)
@@ -52,20 +53,6 @@
 #define BFGCELLS bfgcells        /* Ty 03/09/98 externalized in p_inter.c */
 
 extern void P_Thrust(player_t *, angle_t, fixed_t);
-
-// The following array holds the recoil values         // phares
-
-static const int recoil_values[] = {    // phares
-  10, // wp_fist
-  10, // wp_pistol
-  30, // wp_shotgun
-  10, // wp_chaingun
-  100,// wp_missile
-  20, // wp_plasma
-  100,// wp_bfg
-  0,  // wp_chainsaw
-  80  // wp_supershotgun
-};
 
 //
 // P_SetPsprite
@@ -77,7 +64,7 @@ static void P_SetPsprite(player_t *player, int position, statenum_t stnum)
 
   do
     {
-      state_t *state;
+      const state_t *state;
 
       if (!stnum)
         {
@@ -132,7 +119,7 @@ static void P_BringUpWeapon(player_t *player)
   player->pendingweapon = wp_nochange;
   // killough 12/98: prevent pistol from starting visibly at bottom of screen:
   player->psprites[ps_weapon].sy =
-    mbf_features ? WEAPONBOTTOM+FRACUNIT*2 : WEAPONBOTTOM;
+WEAPONBOTTOM+FRACUNIT*2;
 
   P_SetPsprite(player, ps_weapon, newstate);
 }
@@ -142,9 +129,9 @@ static void P_BringUpWeapon(player_t *player)
 // in DOOM2 to bring up the weapon, i.e. 6 = plasma gun. These    //    |
 // are NOT the wp_* constants.                                    //    V
 
-int weapon_preferences[2][NUMWEAPONS+1] = {
-  {6, 9, 4, 3, 2, 8, 5, 7, 1, 0},  // !compatibility preferences
-  {6, 9, 4, 3, 2, 8, 5, 7, 1, 0},  //  compatibility preferences
+const int weapon_preferences[NUMWEAPONS+1] =
+{
+    6, 9, 4, 3, 2, 8, 5, 7, 1,  // !compatibility preferences
 };
 
 // P_SwitchWeapon checks current ammo levels and gives you the
@@ -155,7 +142,7 @@ int weapon_preferences[2][NUMWEAPONS+1] = {
 
 int P_SwitchWeapon(player_t *player)
 {
-  int *prefer = weapon_preferences[demo_compatibility!=0]; // killough 3/22/98
+  const int *prefer = &weapon_preferences[0]; // killough 3/22/98
   int currentweapon = player->readyweapon;
   int newweapon = currentweapon;
   int i = NUMWEAPONS+1;   // killough 5/2/98
@@ -189,12 +176,12 @@ int P_SwitchWeapon(player_t *player)
         break;
       case 6:
         if (player->weaponowned[wp_plasma] && player->ammo[am_cell] &&
-            gamemode != shareware)
+            _g->gamemode != shareware)
           newweapon = wp_plasma;
         break;
       case 7:
-        if (player->weaponowned[wp_bfg] && gamemode != shareware &&
-            player->ammo[am_cell] >= (demo_compatibility ? 41 : 40))
+        if (player->weaponowned[wp_bfg] && _g->gamemode != shareware &&
+            player->ammo[am_cell] >= (40))
           newweapon = wp_bfg;
         break;
       case 8:
@@ -202,8 +189,8 @@ int P_SwitchWeapon(player_t *player)
           newweapon = wp_chainsaw;
         break;
       case 9:
-        if (player->weaponowned[wp_supershotgun] && gamemode == commercial &&
-            player->ammo[am_shell] >= (demo_compatibility ? 3 : 2))
+        if (player->weaponowned[wp_supershotgun] && _g->gamemode == commercial &&
+            player->ammo[am_shell] >= (2))
           newweapon = wp_supershotgun;
         break;
       }
@@ -215,15 +202,186 @@ int P_SwitchWeapon(player_t *player)
 int P_WeaponPreferred(int w1, int w2)
 {
   return
-    (weapon_preferences[0][0] != ++w2 && (weapon_preferences[0][0] == ++w1 ||
-    (weapon_preferences[0][1] !=   w2 && (weapon_preferences[0][1] ==   w1 ||
-    (weapon_preferences[0][2] !=   w2 && (weapon_preferences[0][2] ==   w1 ||
-    (weapon_preferences[0][3] !=   w2 && (weapon_preferences[0][3] ==   w1 ||
-    (weapon_preferences[0][4] !=   w2 && (weapon_preferences[0][4] ==   w1 ||
-    (weapon_preferences[0][5] !=   w2 && (weapon_preferences[0][5] ==   w1 ||
-    (weapon_preferences[0][6] !=   w2 && (weapon_preferences[0][6] ==   w1 ||
-    (weapon_preferences[0][7] !=   w2 && (weapon_preferences[0][7] ==   w1
+    (weapon_preferences[0] != ++w2 && (weapon_preferences[0] == ++w1 ||
+    (weapon_preferences[1] !=   w2 && (weapon_preferences[1] ==   w1 ||
+    (weapon_preferences[2] !=   w2 && (weapon_preferences[2] ==   w1 ||
+    (weapon_preferences[3] !=   w2 && (weapon_preferences[3] ==   w1 ||
+    (weapon_preferences[4] !=   w2 && (weapon_preferences[4] ==   w1 ||
+    (weapon_preferences[5] !=   w2 && (weapon_preferences[5] ==   w1 ||
+    (weapon_preferences[6] !=   w2 && (weapon_preferences[6] ==   w1 ||
+    (weapon_preferences[7] !=   w2 && (weapon_preferences[7] ==   w1
    ))))))))))))))));
+}
+
+int P_CheckCanSwitchWeapon(weapontype_t weapon, player_t* player)
+{
+    switch(weapon)
+    {
+        case wp_fist:
+        {
+            return wp_fist;
+        }
+        break;
+
+        case wp_pistol:
+        {
+            if (player->ammo[am_clip])
+                return wp_pistol;
+        }
+        break;
+
+        case wp_shotgun:
+        {
+            if (player->ammo[am_shell])
+                return wp_shotgun;
+        }
+        break;
+
+        case wp_chaingun:
+        {
+            if (player->ammo[am_clip])
+                return wp_chaingun;
+        }
+        break;
+
+        case wp_missile:
+        {
+            if (player->ammo[am_misl])
+                return wp_missile;
+        }
+        break;
+
+        case wp_plasma:
+        {
+            if (player->ammo[am_cell])
+                return wp_plasma;
+        }
+        break;
+
+        case wp_bfg:
+        {
+            if ((player->ammo[am_cell] >= 40) && (_g->gamemode != shareware))
+                return wp_bfg;
+        }
+        break;
+
+        case wp_chainsaw:
+        {
+            return wp_chainsaw;
+        }
+        break;
+
+        case wp_supershotgun:
+        {
+            if ((player->ammo[am_shell] >= 2) && (_g->gamemode == commercial))
+                return wp_supershotgun;
+        }
+        break;
+    }
+
+    return wp_nochange;
+}
+
+
+int P_WeaponCycleUp(player_t *player)
+{
+    int w = player->readyweapon;
+
+    for(int i = 0; i < NUMWEAPONS; i++)
+    {
+        w++;
+        if(w >= NUMWEAPONS)
+            w = 0;
+		
+		//Dumb hack to fix weapon order	to be like PSXDoom ~Kippykip
+		switch(w)
+		{
+			case wp_chaingun:
+			{
+				w = wp_supershotgun;
+			}
+			break;
+			case wp_fist:
+			{
+				w = wp_chaingun;
+			}
+			break;
+			case wp_chainsaw:
+			{
+				w = wp_fist;
+			}
+			break;
+			case wp_pistol:
+			{
+				w = wp_chainsaw;
+			}
+			break;
+			case wp_supershotgun:
+			{
+				w = wp_pistol;
+			}
+			break;
+		}
+
+        if(!player->weaponowned[w])
+            continue;
+
+        if(P_CheckCanSwitchWeapon(w, player) != wp_nochange)
+            return w;
+
+    }
+
+    return player->readyweapon;
+}
+
+int P_WeaponCycleDown(player_t *player)
+{
+    int w = player->readyweapon;
+
+    for(int i = 0; i < NUMWEAPONS; i++)
+    {
+        w--;
+        if(w < 0)
+            w = NUMWEAPONS-1;
+		
+		//Dumb hack to fix weapon order	to be like PSXDoom ~Kippykip
+		switch(w)
+		{
+			case wp_shotgun:
+			{
+				w = wp_supershotgun;
+			}
+			break;
+			case wp_chainsaw:
+			{
+				w = wp_shotgun;
+			}
+			break;
+			case wp_fist:
+			{
+				w = wp_chainsaw;
+			}
+			break;
+			case wp_bfg:
+			{
+				w = wp_fist;
+			}
+			break;
+			case wp_supershotgun:
+			{
+				w = wp_bfg;
+			}
+			break;
+		}
+
+        if(!player->weaponowned[w])
+            continue;
+
+        if(P_CheckCanSwitchWeapon(w, player) != wp_nochange)
+            return w;
+    }
+
+    return player->readyweapon;
 }
 
 //
@@ -249,20 +407,6 @@ boolean P_CheckAmmo(player_t *player)
 
   if (ammo == am_noammo || player->ammo[ammo] >= count)
     return true;
-
-  // Out of ammo, pick a weapon to change to.
-  //
-  // killough 3/22/98: for old demos we do the switch here and now;
-  // for Boom games we cannot do this, and have different player
-  // preferences across demos or networks, so we have to use the
-  // G_BuildTiccmd() interface instead of making the switch here.
-
-  if (demo_compatibility)
-    {
-      player->pendingweapon = P_SwitchWeapon(player);      // phares
-      // Now set appropriate weapon overlay.
-      P_SetPsprite(player,ps_weapon,weaponinfo[player->readyweapon].downstate);
-    }
 
   return false;
 }
@@ -341,7 +485,7 @@ void A_WeaponReady(player_t *player, pspdef_t *psp)
 
   // bob the weapon based on movement speed
   {
-    int angle = (128*leveltime) & FINEMASK;
+    int angle = (128*_g->leveltime) & FINEMASK;
     psp->sx = FRACUNIT + FixedMul(player->bob, finecosine[angle]);
     angle &= FINEANGLES/2-1;
     psp->sy = WEAPONTOP + FixedMul(player->bob, finesine[angle]);
@@ -374,7 +518,8 @@ void A_ReFire(player_t *player, pspdef_t *psp)
 
 void A_CheckReload(player_t *player, pspdef_t *psp)
 {
-  if (!P_CheckAmmo(player) && compatibility_level >= prboom_4_compatibility) {
+  if (!P_CheckAmmo(player))
+  {
     /* cph 2002/08/08 - In old Doom, P_CheckAmmo would start the weapon lowering
      * immediately. This was lost in Boom when the weapon switching logic was
      * rewritten. But we must tell Doom that we don't need to complete the
@@ -454,14 +599,7 @@ static void A_FireSomething(player_t* player,int adder)
 {
   P_SetPsprite(player, ps_flash,
                weaponinfo[player->readyweapon].flashstate+adder);
-
-  // killough 3/27/98: prevent recoil in no-clipping mode
-  if (!(player->mo->flags & MF_NOCLIP))
-    if (!compatibility && weapon_recoil)
-      P_Thrust(player,
-               ANG180+player->mo->angle,                          //   ^
-               2048*recoil_values[player->readyweapon]);          //   |
-}                                                                 // phares
+}
 
 //
 // A_GunFlash
@@ -485,7 +623,7 @@ void A_GunFlash(player_t *player, pspdef_t *psp)
 void A_Punch(player_t *player, pspdef_t *psp)
 {
   angle_t angle;
-  int t, slope, damage = (P_Random(pr_punch)%10+1)<<1;
+  int t, slope, damage = (P_Random()%10+1)<<1;
 
   if (player->powers[pw_strength])
     damage *= 10;
@@ -493,18 +631,18 @@ void A_Punch(player_t *player, pspdef_t *psp)
   angle = player->mo->angle;
 
   // killough 5/5/98: remove dependence on order of evaluation:
-  t = P_Random(pr_punchangle);
-  angle += (t - P_Random(pr_punchangle))<<18;
+  t = P_Random();
+  angle += (t - P_Random())<<18;
 
   /* killough 8/2/98: make autoaiming prefer enemies */
-  if (!mbf_features ||
+  if (
       (slope = P_AimLineAttack(player->mo, angle, MELEERANGE, MF_FRIEND),
-       !linetarget))
+       !_g->linetarget))
     slope = P_AimLineAttack(player->mo, angle, MELEERANGE, 0);
 
   P_LineAttack(player->mo, angle, MELEERANGE, slope, damage);
 
-  if (!linetarget)
+  if (!_g->linetarget)
     return;
 
   S_StartSound(player->mo, sfx_punch);
@@ -512,8 +650,7 @@ void A_Punch(player_t *player, pspdef_t *psp)
   // turn to face target
 
   player->mo->angle = R_PointToAngle2(player->mo->x, player->mo->y,
-                                      linetarget->x, linetarget->y);
-  R_SmoothPlaying_Reset(player); // e6y
+                                      _g->linetarget->x, _g->linetarget->y);
 }
 
 //
@@ -522,22 +659,22 @@ void A_Punch(player_t *player, pspdef_t *psp)
 
 void A_Saw(player_t *player, pspdef_t *psp)
 {
-  int slope, damage = 2*(P_Random(pr_saw)%10+1);
+  int slope, damage = 2*(P_Random()%10+1);
   angle_t angle = player->mo->angle;
   // killough 5/5/98: remove dependence on order of evaluation:
-  int t = P_Random(pr_saw);
-  angle += (t - P_Random(pr_saw))<<18;
+  int t = P_Random();
+  angle += (t - P_Random())<<18;
 
   /* Use meleerange + 1 so that the puff doesn't skip the flash
    * killough 8/2/98: make autoaiming prefer enemies */
-  if (!mbf_features ||
+  if (
       (slope = P_AimLineAttack(player->mo, angle, MELEERANGE+1, MF_FRIEND),
-       !linetarget))
+       !_g->linetarget))
     slope = P_AimLineAttack(player->mo, angle, MELEERANGE+1, 0);
 
   P_LineAttack(player->mo, angle, MELEERANGE+1, slope, damage);
 
-  if (!linetarget)
+  if (!_g->linetarget)
     {
       S_StartSound(player->mo, sfx_sawful);
       return;
@@ -547,7 +684,7 @@ void A_Saw(player_t *player, pspdef_t *psp)
 
   // turn to face target
   angle = R_PointToAngle2(player->mo->x, player->mo->y,
-                          linetarget->x, linetarget->y);
+                          _g->linetarget->x, _g->linetarget->y);
 
   if (angle - player->mo->angle > ANG180) {
     if (angle - player->mo->angle < -ANG90/20)
@@ -562,7 +699,6 @@ void A_Saw(player_t *player, pspdef_t *psp)
   }
 
   player->mo->flags |= MF_JUSTATTACKED;
-  R_SmoothPlaying_Reset(player); // e6y
 }
 
 //
@@ -571,6 +707,7 @@ void A_Saw(player_t *player, pspdef_t *psp)
 
 void A_FireMissile(player_t *player, pspdef_t *psp)
 {
+  S_StartSound(player->mo, sfx_rlaunc);
   player->ammo[weaponinfo[player->readyweapon].ammo]--;
   P_SpawnPlayerMissile(player->mo, MT_ROCKET);
 }
@@ -591,36 +728,35 @@ void A_FireBFG(player_t *player, pspdef_t *psp)
 
 void A_FirePlasma(player_t *player, pspdef_t *psp)
 {
+  S_StartSound(player->mo, sfx_plasma);
   player->ammo[weaponinfo[player->readyweapon].ammo]--;
 
-  A_FireSomething(player,P_Random(pr_plasma)&1);              // phares
+  A_FireSomething(player,P_Random()&1);              // phares
   P_SpawnPlayerMissile(player->mo, MT_PLASMA);
 }
+
 
 //
 // P_BulletSlope
 // Sets a slope so a near miss is at aproximately
 // the height of the intended target
 //
-
-static fixed_t bulletslope;
-
 static void P_BulletSlope(mobj_t *mo)
 {
   angle_t an = mo->angle;    // see which target is to be aimed at
 
   /* killough 8/2/98: make autoaiming prefer enemies */
-  uint_64_t mask = mbf_features ? MF_FRIEND : 0;
+  unsigned int mask = MF_FRIEND;
 
   do
     {
-      bulletslope = P_AimLineAttack(mo, an, 16*64*FRACUNIT, mask);
-      if (!linetarget)
-  bulletslope = P_AimLineAttack(mo, an += 1<<26, 16*64*FRACUNIT, mask);
-      if (!linetarget)
-  bulletslope = P_AimLineAttack(mo, an -= 2<<26, 16*64*FRACUNIT, mask);
+      _g->bulletslope = P_AimLineAttack(mo, an, 16*64*FRACUNIT, mask);
+      if (!_g->linetarget)
+  _g->bulletslope = P_AimLineAttack(mo, an += 1<<26, 16*64*FRACUNIT, mask);
+      if (!_g->linetarget)
+  _g->bulletslope = P_AimLineAttack(mo, an -= 2<<26, 16*64*FRACUNIT, mask);
     }
-  while (mask && (mask=0, !linetarget));  /* killough 8/2/98 */
+  while (mask && (mask=0, !_g->linetarget));  /* killough 8/2/98 */
 }
 
 //
@@ -629,16 +765,16 @@ static void P_BulletSlope(mobj_t *mo)
 
 static void P_GunShot(mobj_t *mo, boolean accurate)
 {
-  int damage = 5*(P_Random(pr_gunshot)%3+1);
+  int damage = 5*(P_Random()%3+1);
   angle_t angle = mo->angle;
 
   if (!accurate)
     {  // killough 5/5/98: remove dependence on order of evaluation:
-      int t = P_Random(pr_misfire);
-      angle += (t - P_Random(pr_misfire))<<18;
+      int t = P_Random();
+      angle += (t - P_Random())<<18;
     }
 
-  P_LineAttack(mo, angle, MISSILERANGE, bulletslope, damage);
+  P_LineAttack(mo, angle, MISSILERANGE, _g->bulletslope, damage);
 }
 
 //
@@ -696,14 +832,14 @@ void A_FireShotgun2(player_t *player, pspdef_t *psp)
 
   for (i=0; i<20; i++)
     {
-      int damage = 5*(P_Random(pr_shotgun)%3+1);
+      int damage = 5*(P_Random()%3+1);
       angle_t angle = player->mo->angle;
       // killough 5/5/98: remove dependence on order of evaluation:
-      int t = P_Random(pr_shotgun);
-      angle += (t - P_Random(pr_shotgun))<<19;
-      t = P_Random(pr_shotgun);
-      P_LineAttack(player->mo, angle, MISSILERANGE, bulletslope +
-                   ((t - P_Random(pr_shotgun))<<5), damage);
+      int t = P_Random();
+      angle += (t - P_Random())<<19;
+      t = P_Random();
+      P_LineAttack(player->mo, angle, MISSILERANGE, _g->bulletslope +
+                   ((t - P_Random())<<5), damage);
     }
 }
 
@@ -713,7 +849,7 @@ void A_FireShotgun2(player_t *player, pspdef_t *psp)
 
 void A_FireCGun(player_t *player, pspdef_t *psp)
 {
-  if (player->ammo[weaponinfo[player->readyweapon].ammo] || comp[comp_sound])
+  if (player->ammo[weaponinfo[player->readyweapon].ammo])
     S_StartSound(player->mo, sfx_pistol);
 
   if (!player->ammo[weaponinfo[player->readyweapon].ammo])
@@ -761,21 +897,21 @@ void A_BFGSpray(mobj_t *mo)
       // mo->target is the originator (player) of the missile
 
       // killough 8/2/98: make autoaiming prefer enemies
-      if (!mbf_features ||
+      if (
          (P_AimLineAttack(mo->target, an, 16*64*FRACUNIT, MF_FRIEND),
-         !linetarget))
+         !_g->linetarget))
         P_AimLineAttack(mo->target, an, 16*64*FRACUNIT, 0);
 
-      if (!linetarget)
+      if (!_g->linetarget)
         continue;
 
-      P_SpawnMobj(linetarget->x, linetarget->y,
-                  linetarget->z + (linetarget->height>>2), MT_EXTRABFG);
+      P_SpawnMobj(_g->linetarget->x, _g->linetarget->y,
+                  _g->linetarget->z + (_g->linetarget->height>>2), MT_EXTRABFG);
 
       for (damage=j=0; j<15; j++)
-        damage += (P_Random(pr_bfg)&7) + 1;
+        damage += (P_Random()&7) + 1;
 
-      P_DamageMobj(linetarget, mo->target, mo->target, damage);
+      P_DamageMobj(_g->linetarget, mo->target, mo->target, damage);
     }
 }
 

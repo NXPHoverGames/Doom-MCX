@@ -40,18 +40,18 @@
 
 /* background and foreground screen numbers
  * different from other modules. */
-#define BG      1
-#define FG      0
+#define HU_BG      0
+#define HU_FG      0
 
 /* font stuff
  * #define HU_CHARERASE    KEYD_BACKSPACE / not used               / phares
  */
 
-#define HU_MAXLINES   4
-#define HU_MAXLINELENGTH  80
+#define HU_MAXLINES   1
+#define HU_MAXLINELENGTH  31
 #define HU_REFRESHSPACING 8 /*jff 2/26/98 space lines in text refresh widget*/
 /*jff 2/26/98 maximum number of messages allowed in refresh list */
-#define HU_MAXMESSAGES 16
+#define HU_MAXMESSAGES 1
 
 /*
  * Typedefs of widgets
@@ -65,14 +65,13 @@ typedef struct
   int   x;
   int   y;
 
-  const patchnum_t* f;                    // font
+  const patch_t** f;                    // font
   int   sc;                             // start character
   //const char *cr;                       //jff 2/16/52 output color range
   // Proff - Made this an int again. Needed for OpenGL
-  int   cm;                         //jff 2/16/52 output color range
 
   // killough 1/23/98: Support multiple lines:
-  #define MAXLINES 25
+  #define MAXLINES 1
 
   int   linelen;
   char  l[HU_MAXLINELENGTH*MAXLINES+1]; // line of text
@@ -109,7 +108,7 @@ typedef struct
   int     cl;                          // current line number
 
   int x,y,w,h;                         // window position and size
-  const patchnum_t *bg;                  // patches for background
+  const patch_t *bg;                  // patches for background
 
   // pointer to boolean stating whether to update window
   boolean*    on;
@@ -147,20 +146,17 @@ typedef struct
 void HUlib_clearTextLine(hu_textline_t *t);
 
 void HUlib_initTextLine
-(
-  hu_textline_t *t,
+(hu_textline_t *t,
   int x,
   int y,
-  const patchnum_t *f,
-  int sc,
-  int cm    //jff 2/16/98 add color range parameter
-);
+  const patch_t *f,
+  int sc);
 
 // returns success
 boolean HUlib_addCharToTextLine(hu_textline_t *t, char ch);
 
 // draws tline
-void HUlib_drawTextLine(hu_textline_t *l, boolean drawcursor);
+void HUlib_drawTextLine(hu_textline_t *l);
 
 // erases text line
 void HUlib_eraseTextLine(hu_textline_t *l);
@@ -172,13 +168,12 @@ void HUlib_eraseTextLine(hu_textline_t *l);
 
 // initialize an stext widget
 void HUlib_initSText
-( hu_stext_t* s,
+(hu_stext_t* s,
   int   x,
   int   y,
   int   h,
-  const patchnum_t* font,
-  int   startchar,
-  int cm,   //jff 2/16/98 add color range parameter
+  const patch_t *font,
+  int   startchar,   //jff 2/16/98 add color range parameter
   boolean*  on );
 
 // add a text message to an stext widget
@@ -190,58 +185,5 @@ void HUlib_drawSText(hu_stext_t* s);
 // erases all stext lines
 void HUlib_eraseSText(hu_stext_t* s);
 
-//jff 2/26/98 message refresh widget
-// initialize refresh text widget
-void HUlib_initMText(hu_mtext_t *m, int x, int y, int w, int h, const patchnum_t* font,
-         int startchar, int cm, const patchnum_t* bgfont, boolean *on);
-
-//jff 2/26/98 message refresh widget
-// add a text message to refresh text widget
-void HUlib_addMessageToMText(hu_mtext_t* m, const char* prefix, const char* msg);
-
-//jff 2/26/98 new routine to display a background on which
-// the list of last hud_msg_lines are displayed
-void HUlib_drawMBg
-( int x,
-  int y,
-  int w,
-  int h,
-  const patchnum_t* bgp
-);
-
-//jff 2/26/98 message refresh widget
-// draws mtext
-void HUlib_drawMText(hu_mtext_t* m);
-
-//jff 4/28/98 erases behind message list
-void HUlib_eraseMText(hu_mtext_t* m);
-
-// Input Text Line widget routines
-void HUlib_initIText
-( hu_itext_t* it,
-  int   x,
-  int   y,
-  const patchnum_t* font,
-  int   startchar,
-  int cm,   //jff 2/16/98 add color range parameter
-  boolean*  on );
-
-// resets line and left margin
-void HUlib_resetIText(hu_itext_t* it);
-
-// left of left-margin
-void HUlib_addPrefixToIText
-( hu_itext_t* it,
-  char*   str );
-
-// whether eaten
-boolean HUlib_keyInIText
-( hu_itext_t* it,
-  unsigned char ch );
-
-void HUlib_drawIText(hu_itext_t* it);
-
-// erases all itext lines
-void HUlib_eraseIText(hu_itext_t* it);
 
 #endif

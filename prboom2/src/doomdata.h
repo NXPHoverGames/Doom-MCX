@@ -62,10 +62,12 @@ enum {
   ML_BLOCKMAP           // LUT, motion clipping, walls/grid element
 };
 
+
 #ifdef _MSC_VER // proff: This is the same as __attribute__ ((packed)) in GNUC
 #pragma pack(push)
 #pragma pack(1)
 #endif //_MSC_VER
+
 
 // A single Vertex.
 typedef struct {
@@ -77,9 +79,9 @@ typedef struct {
 typedef struct {
   short textureoffset;
   short rowoffset;
-  char  toptexture[8];
-  char  bottomtexture[8];
-  char  midtexture[8];
+  short toptexture;
+  short bottomtexture;
+  short midtexture;
   short sector;  // Front sector, towards viewer.
 } PACKEDATTR mapsidedef_t;
 
@@ -176,17 +178,6 @@ typedef struct {
 // Indicate a leaf.
 #define NF_SUBSECTOR    0x8000
 
-typedef struct {
-  short x;  // Partition line from (x,y) to x+dx,y+dy)
-  short y;
-  short dx;
-  short dy;
-  // Bounding box for each child, clip against view frustum.
-  short bbox[2][4];
-  // If NF_SUBSECTOR its a subsector, else it's a node of another subtree.
-  unsigned short children[2];
-} PACKEDATTR mapnode_t;
-
 // Thing definition, position, orientation and type,
 // plus skill/visibility flags and attributes.
 typedef struct {
@@ -197,8 +188,26 @@ typedef struct {
   short options;
 } PACKEDATTR mapthing_t;
 
+
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif //_MSC_VER
+
+
+//This is used at runtime so not packed.
+//compiler uses byte access on packed structs.
+
+typedef struct {
+  short x;  // Partition line from (x,y) to x+dx,y+dy)
+  short y;
+  short dx;
+  short dy;
+  // Bounding box for each child, clip against view frustum.
+  short bbox[2][4];
+  // If NF_SUBSECTOR its a subsector, else it's a node of another subtree.
+  unsigned short children[2];
+} mapnode_t;
+
+
 
 #endif // __DOOMDATA__

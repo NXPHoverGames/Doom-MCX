@@ -38,8 +38,8 @@
 #include "s_sound.h"
 #include "sounds.h"
 
-// the list of ceilings moving currently, including crushers
-ceilinglist_t *activeceilings;
+#include "global_data.h"
+
 
 /////////////////////////////////////////////////////////////////
 //
@@ -81,7 +81,7 @@ void T_MoveCeiling (ceiling_t* ceiling)
             );
 
       // if not a silent crusher, make moving sound
-      if (!(leveltime&7))
+      if (!(_g->leveltime&7))
       {
         switch(ceiling->type)
         {
@@ -89,7 +89,7 @@ void T_MoveCeiling (ceiling_t* ceiling)
           case genSilentCrusher:
             break;
           default:
-            S_StartSound((mobj_t *)&ceiling->sector->soundorg,sfx_stnmov);
+            S_StartSound2(&ceiling->sector->soundorg,sfx_stnmov);
             break;
         }
       }
@@ -118,7 +118,7 @@ void T_MoveCeiling (ceiling_t* ceiling)
 
           // crushers reverse direction at the top
           case silentCrushAndRaise:
-            S_StartSound((mobj_t *)&ceiling->sector->soundorg,sfx_pstop);
+            S_StartSound2(&ceiling->sector->soundorg,sfx_pstop);
           case genSilentCrusher:
           case genCrusher:
           case fastCrushAndRaise:
@@ -145,7 +145,7 @@ void T_MoveCeiling (ceiling_t* ceiling)
             );
 
       // if not silent crusher type make moving sound
-      if (!(leveltime&7))
+      if (!(_g->leveltime&7))
       {
         switch(ceiling->type)
         {
@@ -153,7 +153,7 @@ void T_MoveCeiling (ceiling_t* ceiling)
           case genSilentCrusher:
             break;
           default:
-            S_StartSound((mobj_t *)&ceiling->sector->soundorg,sfx_stnmov);
+            S_StartSound2(&ceiling->sector->soundorg,sfx_stnmov);
         }
       }
 
@@ -174,7 +174,7 @@ void T_MoveCeiling (ceiling_t* ceiling)
           // make platform stop at bottom of all crusher strokes
           // except generalized ones, reset speed, start back up
           case silentCrushAndRaise:
-            S_StartSound((mobj_t *)&ceiling->sector->soundorg,sfx_pstop);
+            S_StartSound2(&ceiling->sector->soundorg,sfx_pstop);
           case crushAndRaise:
             ceiling->speed = CEILSPEED;
           case fastCrushAndRaise:
@@ -244,7 +244,7 @@ void T_MoveCeiling (ceiling_t* ceiling)
 // returns true if a thinker started
 //
 int EV_DoCeiling
-( line_t* line,
+( const line_t* line,
   ceiling_e type )
 {
   int   secnum;
@@ -271,7 +271,7 @@ int EV_DoCeiling
   // affects all sectors with the same tag as the linedef
   while ((secnum = P_FindSectorFromLineTag(line,secnum)) >= 0)
   {
-    sec = &sectors[secnum];
+    sec = &_g->sectors[secnum];
 
     // if ceiling already moving, don't start a second function on it
     if (P_SectorActive(ceiling_special,sec))  //jff 2/22/98
@@ -366,12 +366,12 @@ int EV_DoCeiling
 // Returns true if a ceiling reactivated
 //
 //jff 4/5/98 return if activated
-int P_ActivateInStasisCeiling(line_t *line)
+int P_ActivateInStasisCeiling(const line_t *line)
 {
   ceilinglist_t *cl;
   int rtn=0;
 
-  for (cl=activeceilings; cl; cl=cl->next)
+  for (cl=_g->activeceilings; cl; cl=cl->next)
   {
     ceiling_t *ceiling = cl->ceiling;
     if (ceiling->tag == line->tag && ceiling->direction == 0)
@@ -393,12 +393,12 @@ int P_ActivateInStasisCeiling(line_t *line)
 // Passed the linedef stopping the ceilings
 // Returns true if a ceiling put in stasis
 //
-int EV_CeilingCrushStop(line_t* line)
+int EV_CeilingCrushStop(const line_t* line)
 {
   int rtn=0;
 
   ceilinglist_t *cl;
-  for (cl=activeceilings; cl; cl=cl->next)
+  for (cl=_g->activeceilings; cl; cl=cl->next)
   {
     ceiling_t *ceiling = cl->ceiling;
     if (ceiling->direction != 0 && ceiling->tag == line->tag)
@@ -422,13 +422,16 @@ int EV_CeilingCrushStop(line_t* line)
 //
 void P_AddActiveCeiling(ceiling_t* ceiling)
 {
-  ceilinglist_t *list = malloc(sizeof *list);
-  list->ceiling = ceiling;
-  ceiling->list = list;
-  if ((list->next = activeceilings))
-    list->next->prev = &list->next;
-  list->prev = &activeceilings;
-  activeceilings = list;
+    ceilinglist_t *old_head = _g->activeceilings;
+
+    ceilinglist_t *list = Z_Malloc(sizeof *list, PU_LEVEL, &_g->activeceilings);
+    list->ceiling = ceiling;
+    ceiling->list = list;
+
+    if ((list->next = old_head))
+        list->next->prev = &list->next;
+
+    list->prev = old_head;
 }
 
 //
@@ -443,10 +446,13 @@ void P_RemoveActiveCeiling(ceiling_t* ceiling)
 {
   ceilinglist_t *list = ceiling->list;
   ceiling->sector->ceilingdata = NULL;  //jff 2/22/98
+
   P_RemoveThinker(&ceiling->thinker);
-  if ((*list->prev = list->next))
+
+  if ((list->prev && (*list->prev = list->next)))
     list->next->prev = list->prev;
-  free(list);
+
+  Z_Free(list);
 }
 
 //
@@ -458,10 +464,10 @@ void P_RemoveActiveCeiling(ceiling_t* ceiling)
 //
 void P_RemoveAllActiveCeilings(void)
 {
-  while (activeceilings)
+  while (_g->activeceilings)
   {
-    ceilinglist_t *next = activeceilings->next;
-    free(activeceilings);
-    activeceilings = next;
+    ceilinglist_t *next = _g->activeceilings->next;
+    Z_Free(_g->activeceilings);
+    _g->activeceilings = next;
   }
 }

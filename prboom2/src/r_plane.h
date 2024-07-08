@@ -40,28 +40,19 @@
 #pragma interface
 #endif
 
-/* killough 10/98: special mask indicates sky flat comes from sidedef */
-#define PL_SKYFLAT (0x80000000)
-
-/* Visplane related. */
-extern int *lastopening; // dropoff overflow
-
-extern int floorclip[], ceilingclip[]; // dropoff overflow
-extern fixed_t yslope[], distscale[];
 
 void R_InitPlanes(void);
-void R_ClearPlanes(void);
-void R_DrawPlanes (void);
+void R_ResetPlanes();
 
-visplane_t *R_FindPlane(
-                        fixed_t height,
-                        int picnum,
-                        int lightlevel,
-                        fixed_t xoffs,  /* killough 2/28/98: add x-y offsets */
-                        fixed_t yoffs
-                       );
 
-visplane_t *R_CheckPlane(visplane_t *pl, int start, int stop);
-visplane_t *R_DupPlane(const visplane_t *pl, int start, int stop);
+
+#define MAXVISPLANES 32    /* must be a power of 2 */
+
+// killough -- hash function for visplanes
+// Empirically verified to be fairly uniform:
+
+#define visplane_hash(picnum,lightlevel,height) \
+  ((unsigned)((picnum)*3+(lightlevel)+(height)*7) & (MAXVISPLANES-1))
+
 
 #endif

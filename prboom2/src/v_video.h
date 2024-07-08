@@ -48,11 +48,6 @@
 
 #define CENTERY     (SCREENHEIGHT/2)
 
-// Screen 0 is the screen updated by I_Update screen.
-// Screen 1 is an extra buffer.
-
-// array of pointers to color translation tables
-extern const byte *colrngs[];
 
 // symbolic indices into color translation table pointer array
 typedef enum
@@ -72,90 +67,36 @@ typedef enum
 } crange_idx_e;
 //jff 1/16/98 end palette color range additions
 
+
+
 #define CR_DEFAULT CR_RED   /* default value for out of range colors */
 
-typedef struct {
-  byte *data;          // pointer to the screen content
-  boolean not_on_heap; // if set, no malloc or free is preformed and
-                       // data never set to NULL. Used i.e. with SDL doublebuffer.
-  int width;           // the width of the surface
-  int height;          // the height of the surface, used when mallocing
-  int byte_pitch;      // tha actual width of one line, used when mallocing
-  int short_pitch;     // tha actual width of one line, used when mallocing
-  int int_pitch;       // tha actual width of one line, used when mallocing
+typedef struct
+{
+  unsigned short *data;// pointer to the screen content
+  short width;           // the width of the surface
+  short height;          // the height of the surface, used when mallocing
 } screeninfo_t;
 
-#define NUM_SCREENS 6
-extern screeninfo_t screens[NUM_SCREENS];
-extern int          usegamma;
-
-// Varying bit-depth support -POPE
-//
-// For bilinear filtering, each palette color is pre-weighted and put in a
-// table for fast blending operations. These macros decide how many weights
-// to create for each color. The lower the number, the lower the blend
-// accuracy, which can produce very bad artifacts in texture filtering.
-#define VID_NUMCOLORWEIGHTS 64
-#define VID_COLORWEIGHTMASK (VID_NUMCOLORWEIGHTS-1)
-#define VID_COLORWEIGHTBITS 6
-
-// Palettes for converting from 8 bit color to 16 and 32 bit. Also
-// contains the weighted versions of each palette color for filtering
-// operations
-extern unsigned short *V_Palette15;
-extern unsigned short *V_Palette16;
-extern unsigned int *V_Palette32;
-
-#define VID_PAL15(color, weight) V_Palette15[ (color)*VID_NUMCOLORWEIGHTS + (weight) ]
-#define VID_PAL16(color, weight) V_Palette16[ (color)*VID_NUMCOLORWEIGHTS + (weight) ]
-#define VID_PAL32(color, weight) V_Palette32[ (color)*VID_NUMCOLORWEIGHTS + (weight) ]
-
-// The available bit-depth modes
-typedef enum {
-  VID_MODE8,
-  VID_MODE15,
-  VID_MODE16,
-  VID_MODE32,
-  VID_MODEGL,
-  VID_MODEMAX
-} video_mode_t;
-
-extern const char *default_videomode;
-
-void V_InitMode(video_mode_t mode);
-
-// video mode query interface
-video_mode_t V_GetMode(void);
-int V_GetModePixelDepth(video_mode_t mode);
-int V_GetNumPixelBits(void);
-int V_GetPixelDepth(void);
-
-//jff 4/24/98 loads color translation lumps
-void V_InitColorTranslation(void);
-
-// Allocates buffer screens, call before R_Init.
-void V_Init (void);
-
-// V_CopyRect
-typedef void (*V_CopyRect_f)(int srcx,  int srcy,  int srcscrn,
-                             int width, int height,
-                             int destx, int desty, int destscrn,
-                             enum patch_translation_e flags);
-extern V_CopyRect_f V_CopyRect;
+#define NUM_SCREENS 1
 
 // V_FillRect
-typedef void (*V_FillRect_f)(int scrn, int x, int y,
-                             int width, int height, byte colour);
-extern V_FillRect_f V_FillRect;
+void V_FillRect(int x, int y, int width, int height, byte colour);
+
 
 // CPhipps - patch drawing
 // Consolidated into the 3 really useful functions:
 
 // V_DrawNumPatch - Draws the patch from lump num
-typedef void (*V_DrawNumPatch_f)(int x, int y, int scrn,
+void V_DrawNumPatch(int x, int y, int scrn,
                                  int lump, int cm,
                                  enum patch_translation_e flags);
-extern V_DrawNumPatch_f V_DrawNumPatch;
+
+
+void V_DrawPatch(int x, int y, int scrn, const patch_t* patch);
+
+void V_DrawPatchNoScale(int x, int y, const patch_t* patch);
+
 
 // V_DrawNamePatch - Draws the patch from lump "name"
 #define V_DrawNamePatch(x,y,s,n,t,f) V_DrawNumPatch(x,y,s,W_GetNumForName(n),t,f)
@@ -169,18 +110,15 @@ extern V_DrawNumPatch_f V_DrawNumPatch;
 #define V_NamePatchHeight(name) R_NumPatchHeight(W_GetNumForName(name))
 
 /* cphipps 10/99: function to tile a flat over the screen */
-typedef void (*V_DrawBackground_f)(const char* flatname, int scrn);
-extern V_DrawBackground_f V_DrawBackground;
+void V_DrawBackground(const char* flatname);
 
-void V_DestroyUnusedTrueColorPalettes(void);
 // CPhipps - function to set the palette to palette number pal.
 void V_SetPalette(int pal);
 
-// CPhipps - function to plot a pixel
+// Kippykip - Multiple colour corrected palettes
+void V_SetPalLump(int pal);
 
-// V_PlotPixel
-typedef void (*V_PlotPixel_f)(int,int,int,byte);
-extern V_PlotPixel_f V_PlotPixel;
+// CPhipps - function to plot a pixel
 
 typedef struct
 {
@@ -193,15 +131,7 @@ typedef struct
 } fline_t;
 
 // V_DrawLine
-typedef void (*V_DrawLine_f)(fline_t* fl, int color);
-extern V_DrawLine_f V_DrawLine;
+void V_DrawLine(fline_t* fl, int color);
 
-void V_AllocScreen(screeninfo_t *scrn);
-void V_AllocScreens();
-void V_FreeScreen(screeninfo_t *scrn);
-void V_FreeScreens();
 
-#ifdef GL_DOOM
-#include "gl_struct.h"
-#endif
 #endif

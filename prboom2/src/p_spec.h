@@ -64,6 +64,8 @@
 // 4 players, 4 buttons each at once, max.
 // killough 2/14/98: redefine in terms of MAXPLAYERS
 #define MAXBUTTONS    (MAXPLAYERS*4)
+#define MAXSWITCHES		50
+
 
 // 1 second, in ticks.
 #define BUTTONTIME  TICRATE
@@ -366,8 +368,8 @@ typedef enum
 {
   normal,
   close30ThenOpen,
-  close,
-  open,
+  dclose,
+  dopen,
   raiseIn5Mins,
   blazeRaise,
   blazeOpen,
@@ -532,11 +534,11 @@ typedef struct
 
 typedef struct
 {
-  line_t* line;
+  const line_t* line;
   bwhere_e where;
   int   btexture;
   int   btimer;
-  mobj_t* soundorg;
+  degenmobj_t* soundorg;
 
 } button_t;
 
@@ -633,7 +635,7 @@ typedef struct
   int topcountdown;
 
   //jff 1/31/98 keep track of line door is triggered by
-  line_t *line;
+  const line_t *line;
 
   /* killough 10/98: sector tag for gradual lighting effects */
   int lighttag;
@@ -705,28 +707,15 @@ typedef struct
 
 typedef struct {
   thinker_t thinker;   // Thinker structure for scrolling
-  fixed_t dx, dy;      // (dx,dy) scroll speeds
   int affectee;        // Number of affected sidedef, sector, tag, or whatever
-  int control;         // Control sector (-1 if none) used to control scrolling
-  fixed_t last_height; // Last known height of control sector
-  fixed_t vdx, vdy;    // Accumulated velocity if accelerative
-  int accel;           // Whether it's accelerative
-  enum
-  {
-    sc_side,
-    sc_floor,
-    sc_ceiling,
-    sc_carry,
-    sc_carry_ceiling,  // killough 4/11/98: carry objects hanging on ceilings
-  } type;              // Type of scroll effect
 } scroll_t;
 
 // phares 3/12/98: added new model of friction for ice/sludge effects
 
 typedef struct {
-  thinker_t thinker;   // Thinker structure for friction
+  //thinker_t thinker;   // Thinker structure for friction
   int friction;        // friction value (E800 = normal)
-  int movefactor;      // inertia factor when adding to momentum
+  //int movefactor;      // inertia factor when adding to momentum
   int affectee;        // Number of affected sector
 } friction_t;
 
@@ -751,18 +740,38 @@ typedef struct {
   int affectee;        // Number of affected sector
 } pusher_t;
 
-//////////////////////////////////////////////////////////////////
+
 //
-// external data declarations
+// Animating textures and planes
+// There is another anim_t used in wi_stuff, unrelated.
 //
-//////////////////////////////////////////////////////////////////
+typedef struct
+{
+    boolean     istexture;
+    short         picnum;
+    short         basepic;
+    short         numpics;
+    short         speed;
 
-// list of retriggerable buttons active
-extern button_t buttonlist[MAXBUTTONS];
+} anim_t;
 
-extern platlist_t *activeplats;        // killough 2/14/98
+//
+//      source animation definition
+//
+//
 
-extern ceilinglist_t *activeceilings;  // jff 2/22/98
+
+typedef struct
+{
+  signed char istexture; //jff 3/23/98 make char for comparison // cph - make signed
+  char        endname[9];           //  if false, it is a flat
+  char        startname[9];
+  int         speed;
+} PACKEDATTR animdef_t; //jff 3/23/98 pack to read from memory
+
+
+
+#define MAXANIMS 32
 
 ////////////////////////////////////////////////////////////////
 //
@@ -773,11 +782,6 @@ extern ceilinglist_t *activeceilings;  // jff 2/22/98
 int twoSided
 ( int sector,
   int line );
-
-sector_t* getSector
-( int currentSector,
-  int line,
-  int side );
 
 side_t* getSide
 ( int   currentSector,
@@ -839,28 +843,28 @@ int P_FindMinSurroundingLight
   int max );
 
 sector_t* getNextSector
-( line_t* line,
+( const line_t* line,
   sector_t* sec );
 
 int P_CheckTag
-(line_t *line); // jff 2/27/98
+(const line_t *line); // jff 2/27/98
 
 boolean P_CanUnlockGenDoor
-( line_t* line,
+( const line_t* line,
   player_t* player);
 
-boolean PUREFUNC P_SectorActive
+boolean P_SectorActive
 ( special_e t,
   const sector_t* s );
 
-boolean PUREFUNC P_IsSecret
+boolean P_IsSecret
 ( const sector_t *sec );
 
-boolean PUREFUNC P_WasSecret
+boolean P_WasSecret
 ( const sector_t *sec );
 
 void P_ChangeSwitchTexture
-( line_t* line,
+( const line_t* line,
   int useAgain );
 
 ////////////////////////////////////////////////////////////////
@@ -920,12 +924,6 @@ void T_MoveElevator
 void T_Scroll
 ( scroll_t * );      // killough 3/7/98: scroll effect thinker
 
-void T_Friction
-( friction_t * );    // phares 3/12/98: friction thinker
-
-void T_Pusher
-( pusher_t * );      // phares 3/20/98: Push thinker
-
 ////////////////////////////////////////////////////////////////
 //
 // Linedef and sector special handler prototypes
@@ -935,19 +933,19 @@ void T_Pusher
 // p_telept
 
 int EV_Teleport
-( line_t* line,
+( const line_t* line,
   int side,
   mobj_t* thing );
 
 // killough 2/14/98: Add silent teleporter
 int EV_SilentTeleport
-( line_t* line,
+( const line_t* line,
   int side,
   mobj_t* thing );
 
 // killough 1/31/98: Add silent line teleporter
 int EV_SilentLineTeleport
-( line_t* line,
+( const line_t* line,
   int side,
   mobj_t* thing,
   boolean reverse);
@@ -956,96 +954,96 @@ int EV_SilentLineTeleport
 
 int
 EV_DoElevator
-( line_t* line,
+( const line_t* line,
   elevator_e type );
 
 int EV_BuildStairs
-( line_t* line,
+( const line_t* line,
   stair_e type );
 
 int EV_DoFloor
-( line_t* line,
+( const line_t* line,
   floor_e floortype );
 
 // p_ceilng
 
 int EV_DoCeiling
-( line_t* line,
+( const line_t* line,
   ceiling_e type );
 
 int EV_CeilingCrushStop
-( line_t* line );
+( const line_t* line );
 
 // p_doors
 
 int EV_VerticalDoor
-( line_t* line,
+( const line_t* line,
   mobj_t* thing );
 
 int EV_DoDoor
-( line_t* line,
+( const line_t* line,
   vldoor_e type );
 
 int EV_DoLockedDoor
-( line_t* line,
+( const line_t* line,
   vldoor_e type,
   mobj_t* thing );
 
 // p_lights
 
 int EV_StartLightStrobing
-( line_t* line );
+( const line_t* line );
 
 int EV_TurnTagLightsOff
-( line_t* line );
+( const line_t* line );
 
 int EV_LightTurnOn
-( line_t* line,
+( const line_t* line,
   int   bright );
 
-int EV_LightTurnOnPartway(line_t* line, fixed_t level); // killough 10/10/98
+int EV_LightTurnOnPartway(const line_t* line, fixed_t level); // killough 10/10/98
 
 // p_floor
 
 int EV_DoChange
-( line_t* line,
+( const line_t* line,
   change_e changetype );
 
 int EV_DoDonut
-( line_t* line );
+( const line_t* line );
 
 // p_plats
 
 int EV_DoPlat
-( line_t* line,
+( const line_t* line,
   plattype_e  type,
   int amount );
 
 int EV_StopPlat
-( line_t* line );
+( const line_t* line );
 
 // p_genlin
 
 int EV_DoGenFloor
-( line_t* line );
+( const line_t* line );
 
 int EV_DoGenCeiling
-( line_t* line );
+( const line_t* line );
 
 int EV_DoGenLift
-( line_t* line );
+( const line_t* line );
 
 int EV_DoGenStairs
-( line_t* line );
+( const line_t* line );
 
 int EV_DoGenCrusher
-( line_t* line );
+( const line_t* line );
 
 int EV_DoGenDoor
-( line_t* line );
+( const line_t* line );
 
 int EV_DoGenLockedDoor
-( line_t* line );
+( const line_t* line );
 
 ////////////////////////////////////////////////////////////////
 //
@@ -1071,14 +1069,14 @@ void P_UpdateSpecials
 // when needed
 boolean P_UseSpecialLine
 ( mobj_t* thing,
-  line_t* line,
+  const line_t* line,
   int   side );
 
 void P_ShootSpecialLine
 ( mobj_t* thing,
-  line_t* line );
+  const line_t* line );
 
-void P_CrossSpecialLine(line_t *line, int side, mobj_t *thing);
+void P_CrossSpecialLine(const line_t *line, int side, mobj_t *thing);
 
 void P_PlayerInSpecialSector
 ( player_t* player );
@@ -1134,8 +1132,6 @@ void P_AddActiveCeiling
 ( ceiling_t* c );
 
 int P_ActivateInStasisCeiling
-( line_t* line );
-
-mobj_t* P_GetPushThing(int);                                // phares 3/23/98
+( const line_t* line );
 
 #endif
