@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -54,6 +55,7 @@
 #include "m_misc.h"
 #include "i_sound.h"
 #include "i_main.h"
+#include "r_main.h"
 #include "lprintf.h"
 #include "global_data.h"
 
@@ -82,6 +84,9 @@ static void PrintVer(void)
 
 int main(int argc, const char * const * argv)
 {
+    // Calculate lookup tables
+    R_ExecuteSetViewSize();
+
     /* cphipps - call to video specific startup code */
     I_PreInitGraphics();
 

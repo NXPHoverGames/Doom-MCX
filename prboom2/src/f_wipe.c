@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -46,14 +47,9 @@
 #include "m_random.h"
 #include "f_wipe.h"
 #include "global_data.h"
-#include "i_system_e32.h"
+#include "i_system_zephyr.h"
 
 extern short* wipe_y_lookup;
-
-
-#ifdef GBA
-    #include <gba.h>
-#endif
 
 //
 // SCREEN WIPE PACKAGE
@@ -75,6 +71,7 @@ static int wipe_doMelt(int ticks)
 {
     boolean done = true;
 
+#ifndef CONFIG_DOOM_NO_WIPE
     unsigned short* backbuffer = I_GetBackBuffer();
     unsigned short* frontbuffer = I_GetFrontBuffer();
 
@@ -133,11 +130,13 @@ static int wipe_doMelt(int ticks)
             }
         }
     }
+#endif
     return done;
 }
 
 void wipe_initMelt()
 {
+#ifndef CONFIG_DOOM_NO_WIPE
     // setup initial column positions (y<0 => not ready to scroll yet)
     wipe_y_lookup[0] = -(M_Random() % 16);
     for (int i = 1; i < SCREENWIDTH; i++)
@@ -151,6 +150,7 @@ void wipe_initMelt()
         else if (wipe_y_lookup[i] == -16)
             wipe_y_lookup[i] = -15;
     }
+#endif
 }
 
 

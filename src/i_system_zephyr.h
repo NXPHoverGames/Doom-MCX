@@ -4,12 +4,6 @@
  *
  *  PrBoom: a Doom port merged with LxDoom and LSDLDoom
  *  based on BOOM, a modified and improved DOOM engine
- *  Copyright (C) 1999 by
- *  id Software, Chi Hoang, Lee Killough, Jim Flynn, Rand Phares, Ty Halderman
- *  Copyright (C) 1999-2004 by
- *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
- *  Copyright 2005, 2006 by
- *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
  *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
@@ -27,28 +21,45 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  *  02111-1307, USA.
  *
- * DESCRIPTION:
- *  DOOM main program (D_DoomMain) and game loop (D_DoomLoop),
- *  plus functions to determine game mode (shareware, registered),
- *  parse command line parameters, configure game parameters (turbo),
- *  and call the startup functions.
- *
  *-----------------------------------------------------------------------------
  */
 
-#pragma GCC optimize ("-O0")
-#include "doom_iwad.h"
-/*
-const unsigned char doom_iwad[9UL] = {
-0x49,0x57,0x41,0x44,0x86,0x04,0x00,0x00,0x0c};*/
+#ifndef HEADER_I_SYSTEM_ZEPHYR
+#define HEADER_I_SYSTEM_ZEPHYR
 
-//Uncomment which edition you want to compile
-#include "iwad/doom1.c"
-//#include "iwad/doomu.c"
-//#include "iwad/doom2.c"
-//#include "iwad/tnt.c"
-//#include "iwad/plutonia.c"
-//#include "iwad/sigil.c"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef unsigned char byte;
+
+void I_InitScreen_zephyr();
+
+void I_CreateBackBuffer_zephyr();
+
+int I_GetVideoWidth_zephyr();
+
+int I_GetVideoHeight_zephyr();
+
+void I_FinishUpdate_zephyr(const byte* srcBuffer, const byte* pallete, const unsigned int width, const unsigned int height);
+
+void I_SetPallete_zephyr(const byte* pallete);
+
+void I_ProcessKeyEvents();
+
+int I_GetTime_zephyr(void);
+
+void I_Error (const char *error, ...);
+
+void I_Quit_zephyr();
+
+unsigned short* I_GetBackBuffer();
+
+unsigned short* I_GetFrontBuffer();
+
+#ifdef __cplusplus
+}
+#endif
 
 
-const unsigned int doom_iwad_len = sizeof(doom_iwad);
+#endif

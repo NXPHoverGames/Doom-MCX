@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -132,6 +133,7 @@ extern const int  key_map_follow;
 extern const int  key_map_mark;                                           //    ^
 extern const int  key_map_clear;                                          //    |
 extern const int  key_map_grid;                                           // phares
+extern const int  key_toggle;                                           // phares
 
 
 // killough 5/2/98: moved from d_deh.c:

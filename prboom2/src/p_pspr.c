@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -282,6 +283,26 @@ int P_CheckCanSwitchWeapon(weapontype_t weapon, player_t* player)
     return wp_nochange;
 }
 
+int P_WeaponCycle(player_t *player)
+{
+    int w = player->readyweapon;
+
+    for(int i = 0; i < NUMWEAPONS; i++)
+    {
+        w++;
+        if(w >= NUMWEAPONS)
+            w = 0;
+
+        if(!player->weaponowned[w])
+            continue;
+
+        if(P_CheckCanSwitchWeapon(w, player) != wp_nochange)
+            return w;
+
+    }
+
+    return player->readyweapon;
+}
 
 int P_WeaponCycleUp(player_t *player)
 {

@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -43,7 +44,7 @@
 #include "am_map.h"
 #include "lprintf.h"
 
-#include "gba_functions.h"
+#include "zephyr_functions.h"
 
 #include "global_data.h"
 
@@ -86,17 +87,9 @@ void R_InitBuffer()
 	// Same with base row offset.
     drawvars.byte_topleft = _g->screens[0].data;
 
-
-    //Copy lookup tables to fast VRAM.
-    BlockCopy((void*)xtoviewangle_vram, xtoviewangle, sizeof(xtoviewangle));
-
-    BlockCopy((void*)yslope_vram, yslope, sizeof(yslope));
-
-    BlockCopy((void*)distscale_vram, distscale, sizeof(distscale));
-
-    for(int i = 0; i < 120; i++)
+    for(int i = 0; i < SCREENWIDTH; i++)
         negonearray[i] = -1;
 
-    for(int i = 0; i < 120; i++)
-        screenheightarray[i] = 128;
+    for(int i = 0; i < SCREENWIDTH; i++)
+        screenheightarray[i] = viewheight;
 }

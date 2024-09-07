@@ -27,64 +27,76 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  *  02111-1307, USA.
  *
- * DESCRIPTION:
- *      Here is a core component: drawing the floors and ceilings,
- *       while maintaining a per column clipping list only.
- *      Moreover, the sky areas have to be determined.
- *
- * MAXVISPLANES is no longer a limit on the number of visplanes,
- * but a limit on the number of hash slots; larger numbers mean
- * better performance usually but after a point they are wasted,
- * and memory and time overheads creep in.
- *
- * For more information on visplanes, see:
- *
- * http://classicgaming.com/doom/editing/
- *
- * Lee Killough
- *
+ * DESCRIPTION: Main game control interface.
  *-----------------------------------------------------------------------------*/
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#ifndef OS_FUNCTIONS_H
+#define OS_FUNCTIONS_H
 
-#include "z_zone.h"  /* memory allocation wrappers -- killough */
-
-#include "doomstat.h"
-#include "w_wad.h"
-#include "r_main.h"
-#include "r_draw.h"
-#include "r_things.h"
-#include "r_sky.h"
-#include "r_plane.h"
-#include "v_video.h"
-#include "lprintf.h"
-#include "doomdef.h"
+#include <string.h>
+#include "doomtype.h"
 #include "m_fixed.h"
 
-#include "global_data.h"
 
-#include "zephyr_functions.h"
-
-const fixed_t iprojection = FRACUNIT / (SCREENWIDTH / 2);
-
-
-//
-// R_InitPlanes
-// Only at game startup.
-//
-void R_InitPlanes (void)
+inline static CONSTFUNC int IDiv32 (int a, int b)
 {
+    return a / b;
 }
 
-
-
-//Planes are alloc'd with PU_LEVEL tag so are dumped at level
-//end. This function resets the visplane arrays.
-void R_ResetPlanes()
+inline static void BlockCopy(void* dest, const void* src, const unsigned int len)
 {
-    memset(_g->visplanes, 0, sizeof(_g->visplanes));
-    _g->freetail = NULL;
-    _g->freehead = &_g->freetail;
+    memcpy(dest, src, len & 0xfffffffc);
 }
+
+inline static void CpuBlockCopy(void* dest, const void* src, const unsigned int len)
+{
+    BlockCopy(dest, src, len);
+}
+
+inline static void BlockSet(void* dest, volatile unsigned int val, const unsigned int len)
+{
+    memset(dest, val, len & 0xfffffffc);
+}
+
+inline static void ByteCopy(byte* dest, const byte* src, unsigned int count)
+{
+    do
+    {
+        *dest++ = *src++;
+    } while(--count);
+}
+
+inline static void ByteSet(byte* dest, byte val, unsigned int count)
+{
+    do
+    {
+        *dest++ = val;
+    } while(--count);
+}
+
+inline static void* ByteFind(byte* mem, byte val, unsigned int count)
+{
+    do
+    {
+        if(*mem == val)
+            return mem;
+
+        mem++;
+    } while(--count);
+
+    return NULL;
+}
+
+inline static void SaveNonVolatile(const byte* eeprom, unsigned int size, unsigned int offset)
+{
+    //TODO Store to file
+}
+
+inline static void LoadNonVolatile(byte* eeprom, unsigned int size, unsigned int offset)
+{
+    //TODO Load from file
+}
+
+#define ScreenYToOffset(x) (x * SCREENWIDTH)
+
+#endif // OS_FUNCTIONS_H

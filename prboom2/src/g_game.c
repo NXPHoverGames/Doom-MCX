@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -74,7 +75,7 @@
 
 #include "global_data.h"
 
-#include "gba_functions.h"
+#include "zephyr_functions.h"
 
 //
 // controls (have defaults)
@@ -92,6 +93,7 @@ const int     key_menu_escape = KEYD_START;                                     
 const int     key_menu_enter = KEYD_A;                                      // phares 3/7/98
 const int     key_strafeleft = KEYD_L;
 const int     key_straferight = KEYD_R;
+const int     key_toggle = KEYD_TOGGLE;
 //Match Doom II GBA retail controls ~ Kippykip
 const int     key_fire = KEYD_B; 
 const int     key_use = KEYD_A;
@@ -119,7 +121,7 @@ static void G_DoSaveGame (boolean menu);
 static const byte* G_ReadDemoHeader(const byte* demo_p, size_t size, boolean failonerror);
 
 
-typedef struct gba_save_data_t
+typedef struct zephyr_save_data_t
 {
     int save_present;
     skill_t gameskill;
@@ -132,10 +134,10 @@ typedef struct gba_save_data_t
     int weaponowned[NUMWEAPONS];
     int ammo[NUMAMMO];
     int maxammo[NUMAMMO];
-} gba_save_data_t;
+} zephyr_save_data_t;
 
 
-typedef struct gba_save_settings_t
+typedef struct zephyr_save_settings_t
 {
     unsigned int cookie;
     unsigned int alwaysRun;
@@ -144,11 +146,11 @@ typedef struct gba_save_settings_t
     unsigned int musicVolume;
     unsigned int soundVolume;
 
-} gba_save_settings_t;
+} zephyr_save_settings_t;
 
 const unsigned int settings_cookie = 0xbaddead1;
 
-const unsigned int settings_sram_offset = sizeof(gba_save_data_t) * 8;
+const unsigned int settings_sram_offset = sizeof(zephyr_save_data_t) * 8;
 
 //
 // G_BuildTiccmd
@@ -236,6 +238,13 @@ void G_BuildTiccmd(ticcmd_t* cmd)
     // except in demo_compatibility mode.
     //
     // killough 3/26/98, 4/2/98: fix autoswitch when no weapons are left
+
+    if(_g->gamekeydown[key_toggle])
+    {
+        printf("toggle\n");
+        _g->gamekeydown[key_toggle] = 0;
+        newweapon = P_WeaponCycleUp(&_g->player);
+    }
 
     if(_g->gamekeydown[key_use] && _g->gamekeydown[key_straferight])
     {
@@ -362,7 +371,7 @@ static void G_DoLoadLevel (void)
     /* cph 2006/07/31 - took out unused levelstarttic variable */
 
     if (_g->wipegamestate == GS_LEVEL)
-        _g->wipegamestate = -1;             // force a wipe
+        _g->wipegamestate = GS_FORCE_REDRAW;             // force a wipe
 
     _g->gamestate = GS_LEVEL;
 
@@ -540,6 +549,9 @@ void G_Ticker (void)
     // do main actions
     switch (_g->gamestate)
     {
+    case GS_FORCE_REDRAW:
+        break;
+
     case GS_LEVEL:
         P_Ticker ();
         ST_Ticker ();
@@ -842,14 +854,14 @@ void G_ForcedLoadGame(void)
 //
 void G_UpdateSaveGameStrings()
 {
-    unsigned int savebuffersize = sizeof(gba_save_data_t) * 8;
+    unsigned int savebuffersize = sizeof(zephyr_save_data_t) * 8;
 
 
     byte* loadbuffer = Z_Malloc(savebuffersize, PU_STATIC, NULL);
 
-    LoadSRAM(loadbuffer, savebuffersize, 0);
+    LoadNonVolatile(loadbuffer, savebuffersize, 0);
 
-    gba_save_data_t* saveslots = (gba_save_data_t*)loadbuffer;
+    zephyr_save_data_t* saveslots = (zephyr_save_data_t*)loadbuffer;
 
     for(int i = 0; i < 8; i++)
     {
@@ -863,7 +875,8 @@ void G_UpdateSaveGameStrings()
             {
                 strcpy(_g->savegamestrings[i], "MAP ");
 
-                itoa(saveslots[i].gamemap, &_g->savegamestrings[i][4], 10);
+                //itoa(saveslots[i].gamemap, &_g->savegamestrings[i][4], 10);
+                //FIXMe
             }
             else
             {
@@ -890,16 +903,16 @@ void G_LoadGame(int slot, boolean command)
 
 void G_DoLoadGame()
 {
-    unsigned int savebuffersize = sizeof(gba_save_data_t) * 8;
+    unsigned int savebuffersize = sizeof(zephyr_save_data_t) * 8;
 
 
     byte* loadbuffer = Z_Malloc(savebuffersize, PU_STATIC, NULL);
 
-    LoadSRAM(loadbuffer, savebuffersize, 0);
+    LoadNonVolatile(loadbuffer, savebuffersize, 0);
 
-    gba_save_data_t* saveslots = (gba_save_data_t*)loadbuffer;
+    zephyr_save_data_t* saveslots = (zephyr_save_data_t*)loadbuffer;
 
-    gba_save_data_t* savedata = &saveslots[_g->savegameslot];
+    zephyr_save_data_t* savedata = &saveslots[_g->savegameslot];
 
     if(savedata->save_present != 1)
         return;
@@ -939,15 +952,15 @@ void G_SaveGame(int slot, const char *description)
 
 static void G_DoSaveGame(boolean menu)
 {
-    unsigned int savebuffersize = sizeof(gba_save_data_t) * 8;
+    unsigned int savebuffersize = sizeof(zephyr_save_data_t) * 8;
 
     byte* savebuffer = Z_Malloc(savebuffersize, PU_STATIC, NULL);
 
-    LoadSRAM(savebuffer, savebuffersize, 0);
+    LoadNonVolatile(savebuffer, savebuffersize, 0);
 
-    gba_save_data_t* saveslots = (gba_save_data_t*)savebuffer;
+    zephyr_save_data_t* saveslots = (zephyr_save_data_t*)savebuffer;
 
-    gba_save_data_t* savedata = &saveslots[_g->savegameslot];
+    zephyr_save_data_t* savedata = &saveslots[_g->savegameslot];
 
     savedata->save_present = 1;
 
@@ -962,7 +975,7 @@ static void G_DoSaveGame(boolean menu)
     memcpy(savedata->ammo, _g->player.ammo, sizeof(savedata->ammo));
     memcpy(savedata->maxammo, _g->player.maxammo, sizeof(savedata->maxammo));
 
-    SaveSRAM(savebuffer, savebuffersize, 0);
+    SaveNonVolatile(savebuffer, savebuffersize, 0);
 
     Z_Free(savebuffer);
 
@@ -973,7 +986,7 @@ static void G_DoSaveGame(boolean menu)
 
 void G_SaveSettings()
 {
-    gba_save_settings_t settings;
+    zephyr_save_settings_t settings;
 
     settings.cookie = settings_cookie;
 
@@ -985,14 +998,14 @@ void G_SaveSettings()
     settings.musicVolume = _g->snd_MusicVolume;
     settings.soundVolume = _g->snd_SfxVolume;
 
-    SaveSRAM((byte*)&settings, sizeof(settings), settings_sram_offset);
+    SaveNonVolatile((byte*)&settings, sizeof(settings), settings_sram_offset);
 }
 
 void G_LoadSettings()
 {
-    gba_save_settings_t settings;
+    zephyr_save_settings_t settings;
 
-    LoadSRAM((byte*)&settings, sizeof(settings), settings_sram_offset);
+    LoadNonVolatile((byte*)&settings, sizeof(settings), settings_sram_offset);
 
     if(settings.cookie == settings_cookie)
     {

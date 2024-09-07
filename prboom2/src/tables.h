@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -48,6 +49,7 @@
 #define __TABLES__
 
 #include "m_fixed.h"
+#include "doomdef.h"
 
 #define FINEANGLES              8192
 #define FINEMASK                (FINEANGLES-1)
@@ -73,31 +75,56 @@ typedef unsigned angle_t;
 // Load trig tables if needed
 void R_LoadTrigTables(void);
 
+#ifdef CONFIG_DOOM_CALC_SIN_TABLE
+// Effective size is 10240.
+extern fixed_t finesine[10240];
+#else
 // Effective size is 10240.
 extern const fixed_t finesine[10240];
+#endif
+
 
 // Re-use data, is just PI/2 phase shift.
 static const fixed_t *const finecosine = finesine + (FINEANGLES/4);
 
-// Effective size is 4096.
+#ifdef CONFIG_DOOM_CALC_TAN_TABLE
+// Effective size is 10240.
+extern fixed_t finetangent[4096];
+#else
+// Effective size is 10240.
 extern const fixed_t finetangent[4096];
+#endif
+// Effective size is 4096.
 
 // Effective size is 2049;
 // The +1 size is to handle the case when x==y without additional checking.
 
+// Stored in tables.c
 extern const angle_t tantoangle[2049];
 
+#ifdef CONFIG_DOOM_CALC_VIEWANGLETOX
+extern int viewangletox[4096];
+#else
 extern const int viewangletox[4096];
+#endif
 
-extern const angle_t xtoviewangle[121];
-extern const angle_t* xtoviewangle_vram; //VRAM Copy.
+#ifdef CONFIG_DOOM_CALC_XTOVIEWANGLE
+extern angle_t xtoviewangle[SCREENWIDTH + 1];
+#else
+extern const angle_t xtoviewangle[SCREENWIDTH + 1];
+#endif
 
+#ifdef CONFIG_DOOM_CALC_YSLOPE
+extern fixed_t yslope[SCREENHEIGHT];
+#else
+extern const fixed_t yslope[SCREENHEIGHT];
+#endif
 
-extern const fixed_t yslope[160];
-extern const fixed_t* yslope_vram; //VRAM Copy.
-
-extern const fixed_t distscale[120];
-extern const fixed_t* distscale_vram; //VRAM Copy.
+#ifdef CONFIG_DOOM_CALC_DISTSCALE
+extern fixed_t distscale[SCREENWIDTH];
+#else
+extern const fixed_t distscale[SCREENWIDTH];
+#endif
 
 extern short* screenheightarray;
 extern short* negonearray;

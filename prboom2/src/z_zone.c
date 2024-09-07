@@ -4,6 +4,7 @@
 // $Id:$
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
+// Copyright 2024 NXP
 //
 // This source is available for distribution and/or modification
 // only under the terms of the DOOM Source Code License as
@@ -40,9 +41,13 @@
 
 #define ZONEID	0x1d4a11
 
-const unsigned int maxHeapSize = (256 * 1024);
+const unsigned int maxHeapSize = CONFIG_HEAP_MEM_POOL_SIZE - 16048;
 
-#ifndef GBA
+#ifdef CONFIG_DOOM_PRINT_MEMSTAT
+#define MEMSTAT 
+#endif
+
+#ifdef MEMSTAT
     static int running_count = 0;
 #endif
 
@@ -63,6 +68,8 @@ typedef struct
     memblock_t*	rover;
 } memzone_t;
 
+byte zoneHeap[CONFIG_DOOM_ZONE_HEAP_SIZE * 1024];
+
 memzone_t*	mainzone;
 
 //
@@ -72,12 +79,12 @@ void Z_Init (void)
 {
     memblock_t*	block;
 
-    unsigned int heapSize = maxHeapSize;
+    unsigned int heapSize = sizeof(zoneHeap);
 
     //We can now alloc all of the rest fo the memory.
     do
     {
-        mainzone = malloc(heapSize);
+        mainzone = &zoneHeap[0];
         heapSize -= 4;
 
     } while(mainzone == NULL);
@@ -131,7 +138,7 @@ void Z_Free (void* ptr)
     block->tag = 0;
 
 
-#ifndef GBA
+#ifdef MEMSTAT
     running_count -= block->size;
     printf("Free: %d\n", running_count);
 #endif
@@ -274,7 +281,7 @@ void* Z_Malloc(int size, int tag, void **user)
     // next allocation will start looking here
     mainzone->rover = base->next;
 
-#ifndef GBA
+#ifdef MEMSTAT
     running_count += base->size;
     printf("Alloc: %d (%d)\n", base->size, running_count);
 #endif

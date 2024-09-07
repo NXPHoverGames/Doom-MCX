@@ -21,7 +21,7 @@ _g->ftom_zoommul  = FRACUNIT; // how far the window zooms each tic (fb coords)
 //******************************************************************************
 
 _g->wipegamestate = GS_DEMOSCREEN;
-_g->oldgamestate = -1;
+_g->oldgamestate = GS_FORCE_REDRAW;
 
 
 //******************************************************************************

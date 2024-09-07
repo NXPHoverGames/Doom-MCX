@@ -1,0 +1,152 @@
+# Copyright 2024 NXP
+# SPDX-License-Identifier: gpl-2.0-only
+
+mainmenu "Doom"
+
+menu "Zephyr"
+
+source "Kconfig.zephyr"
+
+endmenu
+
+menu "Doom"
+
+config DOOM_X_RES
+	int "Doom X resolution"
+	default 320
+
+config DOOM_Y_RES
+	int "Doom Y resolution"
+	default 240
+
+config DOOM_ZONE_HEAP_SIZE
+    int "Heap size (kB)"
+	default 256
+
+config DOOM_FIXED_RECIPROCAL_LUT
+	bool "Use LUT for FixedReciprocal"
+	default y
+	help
+	  On microarchitectures without a hardware divider such as Cortex-m0
+	  calculating the reciprocal is compute intensive. This method uses
+	  a lookup table (256kB) to approximate it.
+
+config DOOM_CALC_TAN_TABLE
+	bool "Calculate finetangent at startup"
+	default n
+	help
+	  Instead of storing the LUT in flash we calculate the tan table at startup
+	  This saves a bit of flash at the cost of ram and startup time
+
+config DOOM_CALC_SIN_TABLE
+	bool "Calculate finesine at startup"
+	default n
+	help
+	  Instead of storing the LUT in flash we calculate the sine table at startup
+	  This saves a bit of flash at the cost of ram and startup time
+
+config DOOM_CALC_YSLOPE
+	bool "Calculate yslope at startup"
+	default y
+	help
+	  Instead of storing the LUT in flash we calculate the sine table at startup
+	  This saves a bit of flash at the cost of ram and startup time.
+	  Yslope needs to be manually generated for each resolution.
+
+config DOOM_CALC_DISTSCALE
+	bool "Calculate distcale at startup"
+	default y
+	help
+	  Instead of storing the LUT in flash we calculate the sine table at startup
+	  This saves a bit of flash at the cost of ram and startup time.
+	  Distcale needs to be manually generated for each resolution.
+
+config DOOM_CALC_XTOVIEWANGLE
+	bool "Calculate xtoviewangle at startup"
+	default y
+	help
+	  Instead of storing the LUT in flash we calculate the sine table at startup
+	  This saves a bit of flash at the cost of ram and startup time.
+	  Xtoviewangle needs to be manually generated for each resolution.
+
+config DOOM_CALC_VIEWANGLETOX
+	bool "Calculate viewangletox at startup"
+	default y
+	help
+	  Instead of storing the LUT in flash we calculate the sine table at startup
+	  This saves a bit of flash at the cost of ram and startup time.
+	  Viewangletox needs to be manually generated for each resolution.
+
+
+config DOOM_NO_WIPE
+	bool "Disable Screen wipe"
+	default n
+	help
+	  Disables screen wipe effect saves on ram since we don't have to allocate the
+	  frontbuffer anymore
+
+config DOOM_PRINT_MEMSTAT
+	bool "Print memory statistics to console"
+	default n
+
+choice DOOM_PIXEL_FORMAT
+	prompt "Color pixel format"
+	default DOOM_BGR565
+	help
+	  Specify the color pixel format for the DOOM output frame.
+
+config DOOM_RGB888
+	bool "RGB888"
+
+config DOOM_RGB565
+	bool "RGB565"
+
+config DOOM_BGR565
+	bool "BGR565"
+endchoice
+
+config DOOM_HIGHDETAIL
+	bool "High detail mode"
+	default n
+
+config DOOM_FPS_AMMO
+	bool "Use ammo counter as FPS counter"
+	default n
+
+config DOOM_ZEPHYR_BACKGROUND
+	bool "Show Zephyr logo when hud extends 240 pixels"
+	default n
+
+config DOOM_SHOW_NXP_LOGO
+	bool "On startup clear framebuffer with NXP logo pattern"
+	default n
+
+config DOOM_ZEPHYR_ADC_JOYSTICK
+	bool "Use ADC for joystick input"
+	select ADC
+	default n
+
+config DOOM_ZEPHYR_TOUCH_SCREEN
+	bool "Use Touch screen for input"
+	default n
+
+if DOOM_ZEPHYR_TOUCH_SCREEN
+
+# Touchscreen can use different coordinate systems
+# Ideally this should be corrected in the touchscreen driver or input subsys
+
+config DOOM_ZEPHYR_TOUCH_SCREEN_SWAP_XY
+	bool "Touchscreen swap x/y coordinates"
+	default n
+
+config DOOM_ZEPHYR_TOUCH_SCREEN_INVERT_X
+	bool "Touchscreen invert X coordinates"
+	default n
+endif
+	  
+config DOOM_FB_DTCM
+	bool "Place Framebuffer in DTCM memory"
+	depends on ARM
+
+
+endmenu

@@ -1,0 +1,11 @@
+NXP Software Content Register
+
+Package:                    Doom-MCX
+Version:                    1.0
+Outgoing License:           GNU General Public License v2.0 only
+License File:               COPYING
+Description:                A port of prBoom to NXP MCXN MCU running Zephyr RTOS.
+Release location:           https://github.com/nxphovergames/doom-mcx
+Origin:                     NXP (GNU General Public License v2.0 only)
+                            PrBoom (GNU General Public License v2.0 only) - https://svn.prboom.org/repos/trunk/prboom2/COPYING
+                            GBADoom (GNU General Public License v2.0 only) - https://github.com/doomhack/GBADoom/blob/master/source/d_main.c

@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -128,6 +129,7 @@ inline static fixed_t CONSTFUNC FixedMod(fixed_t a, fixed_t b)
 //Approx Reciprocal of v
 inline static CONSTFUNC fixed_t FixedReciprocal(fixed_t v)
 {
+#ifdef CONFIG_DOOM_FIXED_RECIPROCAL_LUT
     unsigned int val = v < 0 ? -v : v;
 
     unsigned int shift = 0;
@@ -141,6 +143,9 @@ inline static CONSTFUNC fixed_t FixedReciprocal(fixed_t v)
     fixed_t result = (reciprocalTable[val] >> shift);
 
     return v < 0 ? -result : result;
+#else
+    return 0xffffffffu / (unsigned) v;
+#endif
 }
 
 

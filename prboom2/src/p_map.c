@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -1192,8 +1193,8 @@ fixed_t P_AimLineAttack(mobj_t* t1,angle_t angle,fixed_t distance, uint_64_t mas
 
   // can't shoot outside view angles
 
-  _g->topslope = 100*FRACUNIT/160;
-  _g->bottomslope = -100*FRACUNIT/160;
+  _g->topslope = 100*FRACUNIT/SCREENHEIGHT;
+  _g->bottomslope = -100*FRACUNIT/SCREENHEIGHT;
 
   _g->attackrange = distance;
   _g->linetarget = NULL;

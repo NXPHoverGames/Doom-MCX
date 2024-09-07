@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -234,7 +235,7 @@ static int R_GetTextureNumForName(const char* tex_name)
     strncpy(tex_name_upper, tex_name, 8);
     tex_name_upper[8] = 0; //Ensure null terminated.
 
-    strupr(tex_name_upper);
+    //strupr(tex_name_upper);
 
     if(_g->tex_lookup_last_name && (!strncmp(_g->tex_lookup_last_name, tex_name_upper, 8)))
     {

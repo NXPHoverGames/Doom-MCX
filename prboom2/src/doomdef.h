@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -62,6 +63,14 @@
 #include "m_swap.h"
 #include "version.h"
 
+#ifdef CONFIG_DOOM_FB_DTCM
+#define FAST_DATA_RAM __dtcm_bss_section
+#define FAST_CONST_RAM __dtcm_data_section
+#else
+#define FAST_DATA_RAM
+#define FAST_CONST_RAM const
+#endif
+
 // Game mode handling - identify IWAD version
 //  to handle IWAD dependend animations etc.
 typedef enum {
@@ -108,19 +117,19 @@ typedef enum {
 // allows us to avoid the overhead of dynamic allocation
 // when multiple screen sizes are supported
 
-// proff 08/17/98: Changed for high-res
-#define MAX_SCREENWIDTH  120
-#define MAX_SCREENHEIGHT 160
-
 // SCREENWIDTH and SCREENHEIGHT define the visible size
-#define SCREENWIDTH 120
-#define SCREENHEIGHT 160
+#define REALSCREENWIDTH (CONFIG_DOOM_X_RES)
+#define SCREENHEIGHT (CONFIG_DOOM_Y_RES)
+#define SCREENWIDTH (REALSCREENWIDTH / 2)
 #define SCREENPITCH SCREENWIDTH //In shorts.
 // SCREENPITCH is the size of one line in the buffer and
 // can be bigger than the SCREENWIDTH depending on the size
 // of one pixel (8, 16 or 32 bit) and the padding at the
 // end of the line caused by hardware considerations
 
+// proff 08/17/98: Changed for high-res
+#define MAX_SCREENWIDTH  SCREENWIDTH
+#define MAX_SCREENHEIGHT SCREENHEIGHT
 
 // The maximum number of players, multiplayer/networking.
 #define MAXPLAYERS       1
@@ -140,6 +149,7 @@ typedef enum {
 // at the intermission screen, the game final animation, or a demo.
 
 typedef enum {
+  GS_FORCE_REDRAW = -1,
   GS_LEVEL,
   GS_INTERMISSION,
   GS_FINALE,
@@ -246,6 +256,7 @@ typedef enum {
 #define KEYD_RIGHT      8
 #define KEYD_START      9
 #define KEYD_SELECT     10
+#define KEYD_TOGGLE     11
 
 
 

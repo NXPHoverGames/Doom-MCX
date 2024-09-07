@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -139,7 +140,7 @@ void HUlib_drawTextLine(hu_textline_t* l)
         else  if (c != ' ' && c >= l->sc && c <= '_')
         {
             w = l->f[c - l->sc]->width;
-            if (x+w > 240)
+            if (x+w > REALSCREENWIDTH)
                 break;
             // killough 1/18/98 -- support multiple lines:
             // CPhipps - patch drawing updated
@@ -149,7 +150,7 @@ void HUlib_drawTextLine(hu_textline_t* l)
         else
         {
             x += 4;
-            if (x >= 240)
+            if (x >= REALSCREENWIDTH)
                 break;
         }
     }

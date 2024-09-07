@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -63,6 +64,7 @@ void R_SetDefaultDrawColumnVars(draw_column_vars_t *dcvars);
 typedef struct {
   unsigned int        position;
   unsigned int        step;
+  fixed_t             iscale;
   const byte          *source; // start of a 64*64 tile image
   const lighttable_t  *colormap;
 } draw_span_vars_t;

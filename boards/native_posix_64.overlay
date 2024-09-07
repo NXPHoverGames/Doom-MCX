@@ -1,0 +1,83 @@
+/*
+ * Copyright 2024 NXP
+ *
+ * SPDX-License-Identifier: gpl-2.0-only
+ */
+
+ #include <zephyr/dt-bindings/input/input-event-codes.h>
+
+ / {
+	aliases {
+		right = &key_right;
+		left = &key_left;
+		down = &key_down;
+		up = &key_up;
+		fire = &key_ctrl;
+		enter = &key_space;
+		strafe = &key_alt;
+		run = &key_shift;
+		menu = &key_esc;
+		weapontoggle = &key_tab;
+		touch-screen = &input_sdl_touch;
+	};
+
+  gpio_keys {
+	compatible = "gpio-keys";
+	key_right: key_right {
+	  gpios = <&gpio0 0 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_RIGHT>;
+	};
+	key_left: key_left {
+	  gpios = <&gpio0 1 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_LEFT>;
+	};
+	key_down: key_down {
+	  gpios = <&gpio0 2 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_DOWN>;
+	};
+	key_up: key_up {
+	  gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_UP>;
+	};
+	key_ctrl: key_ctrl {
+	  gpios = <&gpio0 4 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_LEFTCTRL>;
+	};
+	key_space: key_space {
+	  gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_SPACE>;
+	};
+	key_alt: key_alt {
+	  gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_LEFTALT>;
+	};
+	key_shift: key_shift {
+	  gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_LEFTSHIFT>;
+	};
+	key_esc: key_esc {
+	  gpios = <&gpio0 8 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_ESC>;
+	};
+	key_tab: key_tab {
+	  gpios = <&gpio0 9 GPIO_ACTIVE_HIGH>;
+	  zephyr,code = <INPUT_KEY_TAB>;
+	};
+  };
+  
+  };
+
+/* gpio0 has to be a zephyr,gpio-emul device */
+&gpio0 {
+	ngpios = <10>;
+
+	sdl_gpio {
+		compatible = "zephyr,gpio-emul-sdl";
+		scancodes = <79 80 81 82 224 44 226 225 41 43>;
+	};
+};
+
+&sdl_dc {
+	width = <640>;
+	height = <360>;
+};

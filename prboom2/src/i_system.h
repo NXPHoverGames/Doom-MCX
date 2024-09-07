@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -37,10 +38,12 @@
 #ifdef __GNUG__
 #pragma interface
 #endif
+#include <stdlib.h>
 
 boolean I_StartDisplay(void);
 void I_EndDisplay(void);
 int I_GetTime(void);     /* killough */
+void I_uSleep(unsigned long usecs);
 
 /* cphipps - I_GetVersionString
  * Returns a version string in the given buffer

@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -60,7 +61,7 @@
 #include "st_stuff.h"
 #include "lprintf.h"
 
-#include "i_system_e32.h"
+#include "i_system_zephyr.h"
 
 #include "global_data.h"
 
@@ -126,7 +127,7 @@ static void I_UploadNewPalette(int pal)
 
     _g->current_pallete = &_g->pallete_lump[pal*256*3];
 
-    I_SetPallete_e32(_g->current_pallete);
+    I_SetPallete_zephyr(_g->current_pallete);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -156,7 +157,7 @@ void I_FinishUpdate (void)
         _g->newpal = NO_PALETTE_CHANGE;
 	}
 
-    I_FinishUpdate_e32(_g->screens[0].data, _g->current_pallete, SCREENWIDTH, SCREENHEIGHT);
+    I_FinishUpdate_zephyr(_g->screens[0].data, _g->current_pallete, SCREENWIDTH, SCREENHEIGHT);
 }
 
 //
@@ -170,7 +171,7 @@ void I_SetPalette (int pal)
 
 void I_PreInitGraphics(void)
 {
-	I_InitScreen_e32();
+	I_InitScreen_zephyr();
 }
 
 // CPhipps -
@@ -201,7 +202,7 @@ void I_InitGraphics(void)
         /* Initialize the input system */
         I_InitInputs();
 
-        I_CreateBackBuffer_e32();
+        I_CreateBackBuffer_zephyr();
     }
 }
 

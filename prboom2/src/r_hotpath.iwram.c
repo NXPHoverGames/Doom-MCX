@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -42,9 +43,7 @@
 #include "config.h"
 #endif
 
-#ifndef GBA
-    #include <time.h>
-#endif
+#include <sys/time.h>
 
 #include "doomstat.h"
 #include "d_net.h"
@@ -65,58 +64,36 @@
 
 #include "global_data.h"
 
-#include "gba_functions.h"
+#include "zephyr_functions.h"
 
-
-//#define static
-
-//*****************************************
-//These are unused regions of VRAM.
-//We can store things in here to free space
-//in IWRAM.
-//*****************************************
-
-#ifndef GBA
-static byte vram1_spare[2560];
-static byte vram2_spare[2560];
-static byte vram3_spare[1024];
-#else
-    #define vram1_spare ((byte*)0x6000000+0x9600)
-    #define vram2_spare ((byte*)0x600A000+0x9600)
-    #define vram3_spare ((byte*)0x7000000)
-#endif
 
 //Stuff alloc'd in OAM memory.
 
 //512 bytes.
-static unsigned int* columnCacheEntries = (unsigned int*)&vram3_spare[0];
+unsigned int* columnCacheEntries_alloc[128];
+static unsigned int* columnCacheEntries = (unsigned int*)&columnCacheEntries_alloc[0];
 
 //240 bytes.
-short* floorclip = (short*)&vram3_spare[512];
+short floorclip_alloc[SCREENWIDTH];
+short* floorclip = (short*)&floorclip_alloc[0];
 
 //240 bytes.
-short* ceilingclip = (short*)&vram3_spare[512+240];
+short ceilingclip_alloc[SCREENWIDTH];
+short* ceilingclip = (short*)&ceilingclip_alloc[0];
 
 //992 bytes used. 32 byes left.
 
 
 
-//Stuff alloc'd in VRAM1 memory.
-
-//580 bytes
-const fixed_t* yslope_vram = (const fixed_t*)&vram1_spare[0];
-
-//480 bytes
-const fixed_t* distscale_vram = (const fixed_t*)&vram1_spare[580];
-
-//484 bytes.
-const angle_t* xtoviewangle_vram = (const angle_t*)&vram1_spare[580+480];
-
+#ifndef CONFIG_DOOM_NO_WIPE
 //240 Bytes.
-short* wipe_y_lookup = (short*)&vram1_spare[580+480+484];
+short wipe_y_lookup_alloc[SCREENWIDTH];
+short* wipe_y_lookup = (short*)&wipe_y_lookup_alloc[0];
+#endif
 
 //384 Bytes
-vissprite_t** vissprite_ptrs = (vissprite_t**)&vram1_spare[580+480+484+240];
+vissprite_t* vissprite_ptrs_alloc[MAXVISSPRITES];
+vissprite_t** vissprite_ptrs = (vissprite_t**)&vissprite_ptrs_alloc[0];
 
 //2168 bytes used. 392 bytes left.
 
@@ -124,26 +101,16 @@ vissprite_t** vissprite_ptrs = (vissprite_t**)&vram1_spare[580+480+484+240];
 //Stuff alloc'd in VRAM2 memory.
 
 //240 bytes
-short* screenheightarray = (short*)&vram2_spare[0];
+short screenheightarray_alloc[SCREENWIDTH];
+short* screenheightarray = (short*)&screenheightarray_alloc[0];
 
 //240 bytes
-short* negonearray = (short*)&vram2_spare[240];
+short negonearray_alloc[SCREENWIDTH];
+short* negonearray = (short*)&negonearray_alloc[0];
 
 
-#define yslope yslope_vram
-#define distscale distscale_vram
-#define xtoviewangle xtoviewangle_vram
 
-//*****************************************
-//Column cache stuff.
-//GBA has 16kb of Video Memory for columns
-//*****************************************
-
-#ifndef GBA
 static byte columnCache[128*128];
-#else
-    #define columnCache ((byte*)0x6014000)
-#endif
 
 
 
@@ -160,8 +127,11 @@ angle_t  viewangle;
 
 static byte solidcol[MAX_SCREENWIDTH];
 
+#if SCREENWIDTH > 256
+static short spanstart[MAX_SCREENHEIGHT];                // killough 2/8/98
+#else
 static byte spanstart[MAX_SCREENHEIGHT];                // killough 2/8/98
-
+#endif
 
 static const seg_t     *curline;
 static side_t    *sidedef;
@@ -249,7 +219,11 @@ static fixed_t planeheight;
 
 size_t num_vissprite;
 
+#ifdef CONFIG_DOOM_HIGHDETAIL
+boolean highDetail = true;
+#else
 boolean highDetail = false;
+#endif
 
 
 
@@ -259,7 +233,8 @@ boolean highDetail = false;
 
 const int viewheight = SCREENHEIGHT-ST_SCALED_HEIGHT;
 const int centery = (SCREENHEIGHT-ST_SCALED_HEIGHT)/2;
-static const int centerxfrac = (SCREENWIDTH/2) << FRACBITS;
+const int centerx = SCREENWIDTH/2;
+const int centerxfrac = (SCREENWIDTH/2) << FRACBITS;
 static const int centeryfrac = ((SCREENHEIGHT-ST_SCALED_HEIGHT)/2) << FRACBITS;
 
 const fixed_t projection = (SCREENWIDTH/2) << FRACBITS;
@@ -273,22 +248,15 @@ static const fixed_t pspriteyscale = (SCREENHEIGHT << FRACBITS) / 200;
 static const fixed_t pspriteyiscale = ((UINT_MAX) / ((SCREENHEIGHT << FRACBITS) / 200));
 
 
-static const angle_t clipangle = 537395200; //xtoviewangle[0];
+angle_t clipangle;
 
 static const int skytexturemid = 100*FRACUNIT;
 static const fixed_t skyiscale = (FRACUNIT*200)/((SCREENHEIGHT-ST_HEIGHT)+16);
 
+static unsigned long lasttimereply;
+static unsigned long basetime;
 
-//********************************************
-// On the GBA we exploit that an 8 bit write
-// will mirror to the upper 8 bits too.
-// it saves an OR and Shift per pixel.
-//********************************************
-#ifdef GBA
-    typedef byte pixel;
-#else
-    typedef unsigned short pixel;
-#endif
+typedef unsigned short pixel;
 
 //********************************************
 // This goes here as we want the Thumb code
@@ -539,13 +507,9 @@ inline static void R_DrawColumnPixel(unsigned short* dest, const byte* source, c
 {
     pixel* d = (pixel*)dest;
 
-#ifdef GBA
-    *d = colormap[source[frac>>COLBITS]];
-#else
     unsigned int color = colormap[source[frac>>COLBITS]];
 
     *d = (color | (color << 8));
-#endif
 }
 
 static void R_DrawColumn (const draw_column_vars_t *dcvars)
@@ -1277,16 +1241,11 @@ static void R_DrawMasked(void)
 
 inline static void R_DrawSpanPixel(unsigned short* dest, const byte* source, const byte* colormap, unsigned int position)
 {
+    pixel* d = (pixel*)dest;
 
- pixel* d = (pixel*)dest;
-
-#ifdef GBA
-    *d = colormap[source[((position >> 4) & 0x0fc0) | (position >> 26)]];
-#else
     unsigned int color = colormap[source[((position >> 4) & 0x0fc0) | (position >> 26)]];
 
     *d = (color | (color << 8));
-#endif
 }
 
 static void R_DrawSpan(unsigned int y, unsigned int x1, unsigned int x2, const draw_span_vars_t *dsvars)
@@ -1443,7 +1402,7 @@ static void R_DoDrawPlane(visplane_t *pl)
 
             const int stop = pl->maxx + 1;
 
-            pl->top[pl->minx-1] = pl->top[stop] = 0xff; // dropoff overflow
+            pl->top[pl->minx-1] = pl->top[stop] = 0xffffffffu; // dropoff overflow
 
             for (x = pl->minx ; x <= stop ; x++)
             {
@@ -1586,7 +1545,7 @@ static void R_ProjectSprite (mobj_t* thing, int lightlevel)
     vis->mobjflags = thing->flags;
     // proff 11/06/98: Changed for high-res
     vis->scale = FixedDiv(projectiony, tz);
-    vis->iscale = tz >> 7;
+    vis->iscale = FixedDiv (FRACUNIT, vis->scale);
     vis->patch = patch;
     vis->gx = fx;
     vis->gy = fy;
@@ -1752,7 +1711,7 @@ static visplane_t *R_CheckPlane(visplane_t *pl, int start, int stop)
     else
         unionh  = pl->maxx, intrh  = stop;
 
-    for (x=intrl ; x <= intrh && pl->top[x] == 0xff; x++) // dropoff overflow
+    for (x=intrl ; x <= intrh && pl->top[x] == 0xffffffffu; x++) // dropoff overflow
         ;
 
     if (x > intrh) { /* Can use existing plane; extend range */
@@ -2977,7 +2936,7 @@ void V_DrawPatchNoScale(int x, int y, const patch_t* patch)
                 else
                     *dest16 = ((color & 0xff) | (old & 0xff00));
 
-                dest += 240;
+                dest += REALSCREENWIDTH;
             }
 
             column = (const column_t*)((const byte*)column + column->length + 4);
@@ -3297,47 +3256,27 @@ void P_RunThinkers (void)
 
 
 
-static int I_GetTime_e32(void)
-{
-    int thistimereply = *((unsigned short*)(0x400010C));
-
-    return thistimereply;
-}
-
-
 int I_GetTime(void)
 {
-    int thistimereply;
+  struct timeval tv;
+  unsigned long thistimereply;
 
-#ifndef GBA
+  gettimeofday(&tv, NULL);
 
-    clock_t now = clock();
+  thistimereply = (tv.tv_sec * TICRATE + (tv.tv_usec * TICRATE) / 1000000);
 
-    thistimereply = (int)((double)now / ((double)CLOCKS_PER_SEC / (double)TICRATE));
-#else
-    thistimereply = I_GetTime_e32();
-#endif
+  /* Fix for time problem */
+  if (!basetime) {
+    basetime = thistimereply; thistimereply = 0;
+  } else thistimereply -= basetime;
 
-    if (thistimereply < _g->lasttimereply)
-    {
-        _g->basetime -= 0xffff;
-    }
+  if (thistimereply < lasttimereply)
+    thistimereply = lasttimereply;
 
-    _g->lasttimereply = thistimereply;
+  _g->ms_to_next_tick = 1000 / (TICRATE - (thistimereply % TICRATE));
+  if (_g->ms_to_next_tick > 1000/TICRATE || _g->ms_to_next_tick<1) _g->ms_to_next_tick = 1;
 
-
-    /* Fix for time problem */
-    if (!_g->basetime)
-    {
-        _g->basetime = thistimereply;
-        thistimereply = 0;
-    }
-    else
-    {
-        thistimereply -= _g->basetime;
-    }
-
-    return thistimereply;
+  return (lasttimereply = thistimereply);
 }
 
 

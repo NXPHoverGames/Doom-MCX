@@ -1,0 +1,179 @@
+/*
+ * Copyright 2024 NXP
+ *
+ * SPDX-License-Identifier: gpl-2.0-only
+ */
+ 
+#include <nxp/mcx/MCXN947VDF-pinctrl.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/adc/mcux-lpadc.h>
+#include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
+#include <zephyr/dt-bindings/regulator/nxp_vref.h>
+
+/ {
+
+	chosen {
+		zephyr,display = &st7796s;
+	};
+
+	aliases {
+		enter = &key_space;
+		map = &key_map;
+		menu = &key_menu;
+		fire = &key_fire;
+		toggle = &key_toggle;
+		touch-screen = &gt911;
+	};
+	
+	zephyr,user {
+		/* adjust channel number according to pinmux in board.dts */
+		io-channels = <&lpadc0 0>, <&lpadc0 1>;
+	};
+	/* gpio0 28 is joystick click */
+
+
+
+	adc_joystick: analog_axis {
+		compatible = "analog-axis";
+        poll-period-ms = <15>;
+		axis-x {
+			io-channels = <&lpadc0 0>;
+			in-deadzone = <256>;
+			in-min = <0>;
+			in-max = <4096>;
+			out-min = <(-1)>;
+			out-max = <1>;
+			zephyr,axis = <INPUT_ABS_X>;
+		};
+		axis-y {
+			io-channels = <&lpadc0 1>;
+			in-deadzone = <256>;
+			in-min = <0>;
+			in-max = <4096>;
+			out-min = <(-1)>;
+			out-max = <1>;
+			zephyr,axis = <INPUT_ABS_Y>;
+		};
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+
+		key_fire: key_fire {
+			label = "D";
+			gpios = <&gpio1 21 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; /* PTE0 */
+			zephyr,code = <INPUT_KEY_TAB>;
+		};
+		
+		key_menu: key_menu {
+			label = "A";
+			gpios = <&gpio0 29 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; /* p0_29 */
+			zephyr,code = <INPUT_KEY_TAB>;
+		};
+
+		
+		key_toggle: key_toggle {
+			label = "B";
+			gpios = <&gpio1 23 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; /* PTE22 */
+			zephyr,code = <INPUT_KEY_LEFTALT>;
+		};
+		
+		key_map: key_map {
+			label = "E";
+			gpios = <&gpio1 2 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; /* 1_2 */
+			zephyr,code = <INPUT_KEY_LEFTALT>;
+		};
+		
+		key_space: key_space {
+			label = "A";
+			gpios = <&gpio0 30 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>; /* 1_21 -> C funduino */
+			zephyr,code = <INPUT_KEY_SPACE>;
+		};
+	};
+
+};
+
+&flexspi {
+	status = "okay";
+};
+
+&flexcomm2_lpi2c2 {
+	status = "okay";
+	gt911: gt911@5d {
+		compatible = "goodix,gt911";
+		reg = <0x5d>;
+		alt-addr = <0x14>;
+		irq-gpios = <&gpio4 6 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&nxp_flexio_lcd {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	st7796s: st7796s@0 {
+		compatible = "sitronix,st7796s";
+		reg = <0>;
+		/* Baud rate on each pin is 1MHz */
+		mipi-max-frequency = <10000000>;
+		mipi-mode = <MIPI_DBI_MODE_8080_BUS_16_BIT>;
+		height = <320>;
+		width = <480>;
+		invert-mode = "1-dot";
+		frmctl1 = [80 10];
+		bpc = [1F 50 00 20];
+		dfc = [8A 07 3B];
+		pwr1 = [80 64];
+		pwr2 = <0x13>;
+		pwr3 = <0xA7>;
+		vcmpctl = <0x09>;
+		doca = [40 8A 00 00 29 19 A5 33];
+		pgc = [F0 06 0B 07 06 05 2E 33 47 3A 17 16 2E 31];
+		ngc = [F0 09 0D 09 08 23 2E 33 46 38 13 13 2C 32];
+		madctl = <0x28>;
+		color-invert;
+	};
+};
+
+&sram0 {
+ 	compatible = "mmio-sram";
+	reg = <0x20000000 DT_SIZE_K(416)>;
+};
+
+&vref {
+	regulator-initial-mode = <NXP_VREF_MODE_INTERNAL_REGULATOR>;
+};
+
+&lpadc0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	voltage-ref= <2>;
+
+	/*
+	 * - Connect LPADC0 CH1A signal to voltage between 0~3.3V (J8 pin 14)
+	 * - Connect LPADC0 CH1B signal to voltage between 0~3.3V (J8 pin 24)
+	 */
+
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_EXTERNAL0";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,input-positive = <MCUX_LPADC_CH0A>;
+	};
+
+	channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_EXTERNAL0";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+		zephyr,input-positive = <MCUX_LPADC_CH0B>;
+	};
+};

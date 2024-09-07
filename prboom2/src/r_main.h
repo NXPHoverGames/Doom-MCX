@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -65,6 +66,8 @@ extern const int viewheight;
 
 extern const int centery;
 
+extern angle_t clipangle;
+extern const int centerxfrac;
 extern const fixed_t projection;
 extern const fixed_t iprojection;
 
@@ -113,6 +116,7 @@ subsector_t *R_PointInSubsector(fixed_t x, fixed_t y);
 void R_RenderPlayerView(player_t *player);   // Called by G_Drawer.
 void R_Init(void);                           // Called by startup code.
 void R_SetupFrame (player_t *player);
+void R_ExecuteSetViewSize (void);
 
 
 #endif

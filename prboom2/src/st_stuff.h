@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -45,8 +46,8 @@
 // proff 08/18/98: Changed for high-res
 #define ST_HEIGHT 32
 #define ST_WIDTH  320
-#define ST_Y      (160 - ST_HEIGHT)
-#define ST_SCALED_HEIGHT ST_HEIGHT
+#define ST_Y      (SCREENHEIGHT - ST_HEIGHT)
+#define ST_SCALED_HEIGHT 32
 #define ST_SCALED_WIDTH  SCREENWIDTH
 #define ST_SCALED_Y      (SCREENHEIGHT - ST_SCALED_HEIGHT)
 

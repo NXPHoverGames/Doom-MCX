@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -427,18 +428,11 @@ typedef struct visplane
   fixed_t height;
   boolean modified;
 
-  byte		pad1;
-  byte		pad2;
-  byte		pad3;
-  // Here lies the rub for all
-  //  dynamic resize/change of resolution.
-  byte		top[SCREENWIDTH];
-  byte		pad4;
-  byte		pad5;
-  // See above.
-  byte		bottom[SCREENWIDTH];
-  byte		pad6;
-
+  unsigned int pad1;          // leave pads for [minx-1]/[maxx+1]
+  unsigned int top[MAX_SCREENWIDTH];
+  unsigned int pad2, pad3;    // killough 2/8/98, 4/25/98
+  unsigned int bottom[MAX_SCREENWIDTH];
+  unsigned int pad4; // dropoff overflow
 } visplane_t;
 
 #endif

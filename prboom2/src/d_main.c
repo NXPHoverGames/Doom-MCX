@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -180,7 +181,7 @@ static void D_Display (void)
     if (_g->gamestate != GS_LEVEL) { // Not a level
         switch (_g->oldgamestate)
         {
-            case -1:
+            case GS_FORCE_REDRAW:
             case GS_LEVEL:
                 V_SetPalette(0); // cph - use default (basic) palette
             default:
@@ -719,9 +720,17 @@ static void D_DoomMainSetup(void)
 
     _g->idmusnum = -1; //jff 3/17/98 insure idmus number is blank
 
+#ifdef CONFIG_DOOM_FPS_AMMO
+    _g->fps_show = true;
+#else
     _g->fps_show = false;
+#endif
 
+#ifdef CONFIG_DOOM_HIGHDETAIL
+    _g->highDetail = true;
+#else
     _g->highDetail = false;
+#endif
 
     I_InitGraphics();
 

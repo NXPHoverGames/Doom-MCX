@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -40,8 +41,9 @@
 #include "r_main.h"
 #include "lprintf.h"
 #include "global_data.h"
+#include "gfx/zephyr.h"
 
-#include "gba_functions.h"
+#include "zephyr_functions.h"
 
 //
 // STlib_init()
@@ -308,8 +310,44 @@ void ST_refreshBackground(void)
 {
     if (_g->st_statusbaron)
     {
-        const unsigned int st_offset = ((SCREENHEIGHT-ST_SCALED_HEIGHT)*120);
+        unsigned int st_offset = ((SCREENHEIGHT-ST_SCALED_HEIGHT)*SCREENWIDTH);
+        char* bg = _g->stbarbg;
 
-        CpuBlockCopy(&_g->screens[0].data[st_offset], _g->stbarbg, _g->stbar_len);
+        for(int i = 0; i < ST_SCALED_HEIGHT; i++) {
+          CpuBlockCopy(&_g->screens[0].data[st_offset], bg, _g->stbar_len/ST_SCALED_HEIGHT);
+          st_offset += SCREENWIDTH;
+          bg += _g->stbar_len/ST_SCALED_HEIGHT;
+        }
+        
+#if REALSCREENWIDTH > 240
+
+#if CONFIG_DOOM_ZEPHYR_BACKGROUND
+        st_offset = (((SCREENHEIGHT-ST_SCALED_HEIGHT)*SCREENWIDTH) + 120) * 2;
+
+        int left_over = (REALSCREENWIDTH - 240) % gfx_zephyr_width;
+        int j;
+        byte *screen = (byte *)_g->screens[0].data;
+
+        for(int i = 0; i < 32; i++) {
+          for(j = 0; j < (REALSCREENWIDTH - 240) / gfx_zephyr_width; j++) {
+            memcpy(&screen[st_offset + gfx_zephyr_width*j ], &gfx_zephyr[i*gfx_zephyr_width], gfx_zephyr_width);
+          }
+          if (left_over) {
+            memcpy(&screen[st_offset + gfx_zephyr_width*j ], &gfx_zephyr[i*gfx_zephyr_width], left_over  );
+          }
+          st_offset += SCREENWIDTH*2;
+        }
+#else
+        st_offset = (((SCREENHEIGHT-ST_SCALED_HEIGHT)*SCREENWIDTH) + 120) * 2;
+
+        int j;
+        byte *screen = (byte *)_g->screens[0].data;
+
+        for(int i = 0; i < 32; i++) {
+          memset(&screen[st_offset], 0x0, REALSCREENWIDTH-240);
+          st_offset += SCREENWIDTH*2;
+        }
+#endif
+#endif
     }
 }

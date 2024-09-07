@@ -11,6 +11,8 @@
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
  *
+ *  Copyright 2024 NXP
+ *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
  *  as published by the Free Software Foundation; either version 2
@@ -44,7 +46,7 @@
 #include "lprintf.h"
 
 #include "i_system.h"
-#include "i_system_e32.h"
+#include "i_system_zephyr.h"
 
 #include "global_data.h"
 
@@ -54,6 +56,6 @@
  */
 const char* I_GetVersionString(char* buf, size_t sz)
 {
-    sprintf(buf,"GBADoom v%s",VERSION);
+    sprintf(buf,"Doom-MCX v%s",DOOM_VERSION);
     return buf;
 }

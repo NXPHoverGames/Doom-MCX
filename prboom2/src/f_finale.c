@@ -10,6 +10,7 @@
  *  Jess Haas, Nicolas Kalkhof, Colin Phipps, Florian Schulze
  *  Copyright 2005, 2006 by
  *  Florian Schulze, Colin Phipps, Neil Stevens, Andrey Budko
+ *  Copyright 2024 NXP
  *
  *  This program is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU General Public License
@@ -42,6 +43,7 @@
 #include "dstrings.h"
 
 #include "global_data.h"
+#include <stdint.h>
 
 
 
@@ -227,7 +229,7 @@ static float Get_TextSpeed(void)
             {                               // with enough time, it's automatic
                 _g->finalecount = 0;
                 _g->finalestage = 1;
-                _g->wipegamestate = -1;         // force a wipe
+                _g->wipegamestate = GS_FORCE_REDRAW;         // force a wipe
                 if (_g->gameepisode == 3)
                     S_StartMusic(mus_bunny);
             }
@@ -338,7 +340,7 @@ static const castinfo_t castorder[] =
 
 void F_StartCast (void)
 {
-    _g->wipegamestate = -1;         // force a screen wipe
+    _g->wipegamestate = GS_FORCE_REDRAW;         // force a screen wipe
     _g->castnum = 0;
     _g->caststate = &states[mobjinfo[castorder[_g->castnum].type].seestate];
     _g->casttics = _g->caststate->tics;
@@ -511,7 +513,7 @@ static void F_CastPrint (const char* text) // CPhipps - static, const char*
     }
 
     // draw it
-    cx = 120-width/2;
+    cx = 160-width/2;
     ch = text;
     while (ch)
     {
@@ -527,7 +529,7 @@ static void F_CastPrint (const char* text) // CPhipps - static, const char*
 
         w = _g->hu_font[c]->width;
         // CPhipps - patch drawing updated
-        V_DrawPatchNoScale(cx, 144, _g->hu_font[c]);
+        V_DrawPatchNoScale(cx, 180, _g->hu_font[c]);
         cx+=w;
     }
 }
@@ -571,7 +573,7 @@ static const char pfub1[] = { "PFUB1" };
 static void F_BunnyScroll (void)
 {
     char        name[10];
-    int         stage;
+    int16_t        stage;
 
     {
         int scrolled = 320 - (_g->finalecount-230)/2;
