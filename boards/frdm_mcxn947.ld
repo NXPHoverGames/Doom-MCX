@@ -7,8 +7,9 @@ MEMORY
     {
     FLASH (rx) : ORIGIN = (0x10000000 + 0x0), LENGTH = (2048 * 1024 - 0x0 - 0x0)
     RAM (wx) : ORIGIN = 0x30000000, LENGTH = (416 * 1K)
-	EXTERNAL_FLASH (rx) : ORIGIN = 0x90000000, LENGTH = 4096K
+    EXTERNAL_FLASH (rx) : ORIGIN = 0x90000000, LENGTH = 4096K
     SRAM1 : ORIGIN = 335544320, LENGTH = 98304
+    IDT_LIST (wx) : ORIGIN = 0xFFFF7FFF, LENGTH = 32K
     }
 ENTRY("__start")
 SECTIONS
@@ -203,6 +204,7 @@ ztest :
  _image_ram_start = .;
 .ramfunc : ALIGN_WITH_INPUT
 {
+ __ramfunc_region_start = .;
  . = ALIGN(_region_min_align);
  __ramfunc_start = .;
  *(.ramfunc)
@@ -279,7 +281,7 @@ KEEP(*(DataQuickAccess))
 {
  KEEP(*(.irq_info*))
  KEEP(*(.intList*))
-} > IDT_LIST
+}
     .last_ram_section (NOLOAD) :
     {
  _image_ram_end = .;

@@ -19,6 +19,9 @@ Before getting started, make sure you have a proper Zephyr development
 environment. Follow the official
 [Zephyr Getting Started Guide](https://docs.zephyrproject.org/latest/getting_started/index.html).
 
+> [!NOTE]  
+> DOOM-MCX has been tested on Zephyr SDK version 0.17.0. When installing the sdk it's recommended to specify the version using `west sdk install --version 0.17.0`
+
 ### Initialization
 
 The first step is to initialize the DOOM-MCX Zephyr workspace folder (``doom-mcx-workspace``) where ``doom-mcx`` and all Zephyr modules will be cloned. Run the following
@@ -44,7 +47,7 @@ west build -p always -b frdm_mcxn947/mcxn947/cpu0
 ### Flashing
 
 > [!NOTE]  
-> [NXP Linkserver](https://www.nxp.com/design/design-center/software/development-software/mcuxpresso-software-and-tools-/linkserver-for-microcontrollers:LINKERSERVER) v1.5.30 or newer has to be installed.
+> [NXP Linkserver](https://www.nxp.com/design/design-center/software/development-software/mcuxpresso-software-and-tools-/linkserver-for-microcontrollers:LINKERSERVER) v1.5.30 or newer has to be installed. See [Zephyr LinkServer guide](https://docs.zephyrproject.org/latest/develop/flash_debug/host-tools.html#linkserver-debug-host-tools) for more information.
 
 To flash the application to the FRDM-MCXN947 board. Connect a USB-C cable to the "MCU-Link" USB-C port and run the following command:
 

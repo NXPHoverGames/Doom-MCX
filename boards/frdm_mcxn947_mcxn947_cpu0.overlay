@@ -109,7 +109,7 @@
 	};
 };
 
-&nxp_flexio_lcd {
+&zephyr_mipi_dbi_parallel {
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
