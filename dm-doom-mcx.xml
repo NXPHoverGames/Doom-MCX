@@ -1,0 +1,35 @@
+<data:item xmlns:data="data" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="data ../../xsd/alp.xsd" type="demo" format="zephyr" versionSchema="1.0.0" name="Doom-MCX" uuid="3de30ea6-d208-4d00-83fb-95f4236918de">
+    <display_title>
+        Doom-MCX port of popular Doom game to run on NXP MCX microcontrollers
+    </display_title>
+    <overview>
+        <![CDATA[A port of prBoom to the NXP MCXN947 MCU running on top Zephyr RTOS.]]>
+    </overview>
+    <toolchains>
+        <toolchain name="gcc"></toolchain>
+        <toolchain name="vscode"></toolchain>
+    </toolchains>
+    <families>
+        <family name="mcx"></family>
+    </families>
+    <nxp_compatible_hw>
+        <hw id="FRDM-MCXN947"></hw>
+    </nxp_compatible_hw>
+    <nxp_ebh_hw>
+        <ebh id="nxp_lcd_par_s035"></ebh>
+    </nxp_ebh_hw>
+    <peripherals>
+        <peripheral name="adc"></peripheral>
+        <peripheral name="display"></peripheral>
+        <peripheral name="dma"></peripheral>
+        <peripheral name="flash"></peripheral>
+        <peripheral name="gpio"></peripheral>
+        <peripheral name="i2c"></peripheral>
+        <peripheral name="pinctrl"></peripheral>
+    </peripherals>
+    <categories>
+        <category name="rtos"></category>
+        <category name="hmi"></category>
+        <category name="graphics"></category>
+    </categories>
+</data:item>
