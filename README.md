@@ -24,7 +24,7 @@ A port of prBoom to NXP MCXN MCU running Zephyr RTOS
 7. [Release Notes](#step7)
 
 ## 1. Software<a name="step1"></a>
-- Zephyr 4.0
+- Zephyr 4.1.0
 - Zephyr SDK version 0.17.0
 
 ## 2. Hardware<a name="step2"></a>

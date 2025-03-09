@@ -16,7 +16,7 @@ manifest:
   projects:
     - name: zephyr
       remote: zephyrproject-rtos
-      revision: 8469084dfae85f854555f0607f2c838dad097235 # zephyr v4.0.0
+      revision: 7823374e872145b5bd018bfe447839eb36042611 # zephyr v4.1.0
       import:
         - name-allowlist:
           - hal_nxp
