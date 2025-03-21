@@ -125,7 +125,7 @@ Zephyr RTOS also provides a native_posix target
 
 To compile as native type:
 ```shell
-west build -p always -b native_posix_64
+west build -p always -b native_sim/native/64
 ```
 
 To run type
