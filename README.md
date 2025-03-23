@@ -131,7 +131,7 @@ west build -p always -b native_sim/native/64
 To run type
 ```shell
 cd doom-mcx
-./build/zephyr/zephyr.elf
+./build/zephyr/zephyr.exe
 ```
 
 ### native_posix controls

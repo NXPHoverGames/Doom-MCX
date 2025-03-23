@@ -354,7 +354,7 @@ void I_PollWServEvents_e32() {
 }
 
 #ifdef CONFIG_DOOM_ZEPHYR_ADC_JOYSTICK
-static void input_adc_joy_cb(struct input_event *evt) {
+static void input_adc_joy_cb(struct input_event *evt, void *user_data) {
 
   if (evt->type == INPUT_EV_ABS && evt->code == INPUT_ABS_X) {
     if (evt->value == -1) {
@@ -381,7 +381,7 @@ INPUT_CALLBACK_DEFINE(adc_joy_dev, input_adc_joy_cb, NULL);
 #endif
 
 #ifdef CONFIG_DOOM_ZEPHYR_TOUCH_SCREEN
-static void input_touch_cb(struct input_event *evt) {
+static void input_touch_cb(struct input_event *evt, void *user_data) {
 
 #ifdef CONFIG_DOOM_ZEPHYR_TOUCH_SCREEN_SWAP_XY
   if (evt->type == INPUT_EV_ABS && evt->code == INPUT_ABS_X) {
